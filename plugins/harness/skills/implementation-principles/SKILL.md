@@ -1,9 +1,9 @@
 ---
 name: implementation-principles
-code: CIA-7
-prerequisites: homomorphism
-description: CIA-7 — mandatory preparatory-refactoring principles that keep code structure homomorphic to the problem structure (make the change easy first, requisite variety, cohesion, coupling, small steps, connascence). Use whenever changing code structure — refactoring, extracting, moving, or reshaping code — or when a feature or fix does not land cleanly in the existing structure.
+description: CIA-7 — mandatory preparatory-refactoring principles that keep code structure homomorphic to the problem structure (make the change easy first, requisite variety, cohesion, coupling, small steps, connascence). Use whenever changing code structure — refactoring, extracting, moving, or reshaping code — or when a feature or fix does not land cleanly in the existing structure. Cites homomorphism as a prerequisite — load the harness:homomorphism skill first.
 user-invocable: false
+metadata:
+  code: CIA-7
 ---
 
 # CIA-7: Implementation Principles

@@ -1,8 +1,9 @@
 ---
 name: homomorphism
-code: homomorphism
 description: The foundational principle that a solution's shape must mirror the problem's structure — the homomorphism test, requisite variety, and single source of truth. Use when reasoning about design quality, code or test structure, duplication, abstraction, indirection, or when CIA-7, CIA-8, or CIA-9 cite homomorphism as a prerequisite.
 user-invocable: false
+metadata:
+  code: homomorphism
 ---
 
 # Homomorphism
