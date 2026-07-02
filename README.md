@@ -18,7 +18,7 @@ agentic-harness/
 └── plugins/
     └── harness/
         ├── .claude-plugin/
-        │   └── plugin.json               # plugin manifest — deliberately NO version field
+        │   └── plugin.json               # plugin manifest — its `version` gates releases
         └── skills/
             ├── commit-protocol/SKILL.md
             ├── executable-expectations/SKILL.md
@@ -33,11 +33,12 @@ agentic-harness/
 
 ## Update propagation
 
-**`git push` to this repo is the entire release step.** `plugin.json` deliberately
-omits `version`, so the plugin's version *is* the git commit SHA — every push is a new
-version. Do **not** add a `version` field: update detection compares resolved versions,
-so an unbumped version string would make every future push a silent no-op for existing
-consumers.
+**A release = bump `version` in `plugins/harness/.claude-plugin/plugin.json`, then
+`git push`.** Update detection compares resolved versions, and `plugin.json`'s explicit
+`version` is the resolved version — a push that does **not** bump it is a silent no-op
+for existing consumers (fresh installs still get the latest commit). The field cannot be
+omitted in favor of SHA-based versioning: `claude plugin validate --strict` (the CI
+gate) escalates a missing `version` to an error.
 
 - Consumers whose marketplace entry sets `autoUpdate: true` refresh at the next
   Claude Code startup and see a `/reload-plugins` prompt.
@@ -101,16 +102,16 @@ environment, auto-update of the private marketplace silently fails.
 
 ## Pinning options
 
-By default consumers track `main` (latest SHA). To pin:
+By default consumers track `main`, receiving each release as its `version` lands there.
+To pin harder:
 
 1. **Pin the marketplace at add time**: `claude plugin marketplace add tmrtx/agentic-harness@<ref>`
    (branch, tag, or commit SHA).
 2. **Pin a plugin source in `marketplace.json`**: add `ref` (branch/tag) or `sha`
    (exact commit) to the plugin's `source` entry — `sha` wins if both are set.
-3. **Explicit `version` freeze**: adding a `version` string to `plugin.json` freezes
-   update detection — pushes become no-ops for existing users until the version is
-   bumped. This is the opposite of this repo's intent; only use it if you want
-   release-gated updates.
+3. **Release gating via `version`** (already in effect): `plugin.json` carries an
+   explicit `version`, so existing consumers only ever move between released
+   versions — unreleased pushes to `main` never reach them.
 4. **Stable/latest channels**: run two marketplaces (e.g. this repo at `main` as
    *latest* and a second marketplace entry pinned to a tag as *stable*) and let each
    consumer choose which one to enable.
