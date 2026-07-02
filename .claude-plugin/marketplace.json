@@ -1,0 +1,13 @@
+{
+  "name": "agentic-harness",
+  "owner": { "name": "tmrtx", "email": "tamertas.inbox@gmail.com" },
+  "description": "Shared Claude Code instruction set for tmrtx repos: governance policies (homomorphism, CIA-7, CIA-8, CIA-9) and workflow skills",
+  "metadata": { "pluginRoot": "./plugins" },
+  "plugins": [
+    {
+      "name": "harness",
+      "source": "./plugins/harness",
+      "description": "Shared governance policies (homomorphism, CIA-7, CIA-8, CIA-9) and workflow skills for tmrtx repos"
+    }
+  ]
+}
