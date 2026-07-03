@@ -4,6 +4,8 @@ code: CIA-8
 prerequisites: homomorphism
 description: CIA-8 — mandatory test-first regulations; tests are written before implementation, assert observable outcomes rather than mechanisms, survive refactoring unchanged, and serve as the specification. Use whenever writing or modifying tests, implementing a feature or fix that changes behavior, doing TDD, or evaluating test coverage or test quality.
 user-invocable: false
+paths:
+  - "**/*.py"
 ---
 
 # CIA-8: Executable Expectations
