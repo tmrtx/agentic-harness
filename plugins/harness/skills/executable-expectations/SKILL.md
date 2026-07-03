@@ -77,7 +77,3 @@ Below are **non-negotiable** directives constituting the CIA-8 Testing Integrity
 The concrete practices that satisfy these directives — worked examples and a review
 checklist — live in [`test-writing.md`](test-writing.md). Open it when writing,
 structuring, or reviewing tests.
-
----
-
-## 5. References & Changelog

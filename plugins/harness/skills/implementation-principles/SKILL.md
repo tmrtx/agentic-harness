@@ -81,7 +81,3 @@ The cognitive symptoms, connascence taxonomy, planning checklist, and anti-patte
 that put these directives into practice live in
 [`preparatory-refactoring.md`](preparatory-refactoring.md). Open it when a change does
 not land cleanly and you need to reshape the structure first.
-
----
-
-## 5. References & Changelog
