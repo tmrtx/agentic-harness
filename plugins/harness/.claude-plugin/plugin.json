@@ -1,5 +1,5 @@
 {
   "name": "harness",
-  "description": "Shared instruction set: governance policies and workflow skills (specification, implementation-loop, commit-protocol, pull-request, scope-issue)",
+  "description": "Shared instruction set: governance policies, workflow skills (specification, implementation-loop, commit-protocol, pull-request, scope-issue), and a read-only reviewer subagent",
   "author": { "name": "tmrtx" }
 }
