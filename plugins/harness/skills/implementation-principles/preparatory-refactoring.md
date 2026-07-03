@@ -1,39 +1,11 @@
 # Preparatory Refactoring
 
-## 4. Compliance & Enforcement
+The practical toolkit for "make the change easy, then make the easy change": this skill
+applies `CIA-7` (Implementation Principles), so see the control for the directives these
+practices serve. Use it to diagnose the structure, name the coupling, plan the work, and
+stay out of the ditches.
 
-1. **Monitoring**
-   - Code reviews verify changes are homomorphic: small requirement changes should produce small code changes.
-   - Refactoring PRs are audited for behavior preservation—tests must not change during pure refactoring.
-   - Abstractions are reviewed for requisite variety: each must earn its cognitive cost.
-
-2. **Non-Compliance Indicators**
-   - Changes scattered across many files for a simple requirement (non-homomorphic structure).
-   - Single-use abstractions that add indirection without reducing complexity (non-requisite variety).
-   - Refactoring mixed with behavior changes in the same commit (violates small steps).
-   - Design patterns applied without diagnosing the specific structural problem (cargo-culting).
-
-3. **Anti-Patterns**
-
-   | Anti-Pattern | Violates |
-   |--------------|----------|
-   | Big bang refactoring | CIA-7.5 |
-   | Speculative refactoring | CIA-7.2 |
-   | Refactoring without tests | CIA-7.5 |
-   | Cargo-culting patterns | CIA-7.1 |
-   | "No time" fallacy | CIA-7.1 |
-
-   - **Big bang refactoring** — High risk, hard to review, difficult to bisect. Prefer the strangler fig pattern: gradually replace components while keeping the system running.
-   - **Speculative refactoring** — Refactoring for hypothetical future changes. You don't know what structure future changes will need. Manifestations: premature extraction, speculative hierarchies, pattern application before understanding variation points. Diagnose *current* friction first. Often the need is to consolidate, not extract.
-   - **Refactoring without tests** — Structural changes without a safety net. Write characterization tests first (capture current behavior), then refactor.
-   - **Cargo-culting patterns** — Applying patterns as "best practice" without diagnosing the structural problem. Patterns are remedies for specific ailments. Diagnose first—identify the cohesion/coupling issue—then select the pattern.
-   - **"No time" fallacy** — Skipping prep under time pressure. This usually takes *longer* and creates bugs. Prep refactoring pays for itself in reduced debugging.
-
----
-
-## 5. Practical Application
-
-### 5.1 Cognitive Symptoms
+## Cognitive symptoms
 
 These are signs of non-homomorphic code—what you experience during mental simulation:
 
@@ -46,7 +18,7 @@ These are signs of non-homomorphic code—what you experience during mental simu
 
 These symptoms are *outcomes*. To fix them, address the structural causes.
 
-### 5.2 Connascence Taxonomy
+## Connascence taxonomy
 
 Connascence is a detailed taxonomy of coupling. Reduce connascence by: lowering strength (identity → value → name), improving locality (keep connascent code close), reducing degree (fewer components involved).
 
@@ -62,7 +34,7 @@ Connascence is a detailed taxonomy of coupling. Reduce connascence by: lowering 
 | Value | Values must change together | Consolidate into single unit |
 | Identity | Must reference the same object | Strongest; work hard to eliminate |
 
-### 5.3 Planning Checklist
+## Planning checklist
 
 Once friction points are identified, plan a sequence of small, safe refactorings:
 
@@ -76,3 +48,19 @@ Present the plan before executing:
 - Describe the refactorings you'll perform and why
 - Clarify how this makes the eventual change easier
 - Then execute the refactorings before the feature change
+
+## Anti-patterns
+
+| Anti-Pattern | Violates |
+|--------------|----------|
+| Big bang refactoring | `CIA-7.5` |
+| Speculative refactoring | `CIA-7.2` |
+| Refactoring without tests | `CIA-7.5` |
+| Cargo-culting patterns | `CIA-7.1` |
+| "No time" fallacy | `CIA-7.1` |
+
+- **Big bang refactoring** — High risk, hard to review, difficult to bisect. Prefer the strangler fig pattern: gradually replace components while keeping the system running.
+- **Speculative refactoring** — Refactoring for hypothetical future changes. You don't know what structure future changes will need. Manifestations: premature extraction, speculative hierarchies, pattern application before understanding variation points. Diagnose *current* friction first. Often the need is to consolidate, not extract.
+- **Refactoring without tests** — Structural changes without a safety net. Write characterization tests first (capture current behavior), then refactor.
+- **Cargo-culting patterns** — Applying patterns as "best practice" without diagnosing the structural problem. Patterns are remedies for specific ailments. Diagnose first—identify the cohesion/coupling issue—then select the pattern.
+- **"No time" fallacy** — Skipping prep under time pressure. This usually takes *longer* and creates bugs. Prep refactoring pays for itself in reduced debugging.

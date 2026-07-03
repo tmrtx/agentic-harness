@@ -1,30 +1,11 @@
 # Test Writing
 
-## 4. Compliance & Enforcement
+The concrete practices that satisfy `CIA-8` (Executable Expectations): this skill applies
+those directives, so see the control for the contract they serve. The sections below show
+what homomorphic tests look like in code, and how to recognize a test that has drifted onto
+solution structure.
 
-1. **Monitoring**
-   - Code reviews verify tests are homomorphic to problem structure: asserting outcomes, not mechanisms.
-   - Refactoring PRs are audited—if tests broke during pure refactoring, those tests violated homomorphism and must be flagged.
-   - Test cases are reviewed for requisite variety: each must map to a nameable real scenario.
-
-2. **Non-Compliance Indicators**
-   - Tests that mock internal collaborators or assert on call sequences (mechanism coupling).
-   - Tests that break during refactoring despite behavior being preserved (solution structure coupling).
-   - Test cases that cannot be traced to a real user scenario (non-requisite variety).
-   - Coverage without corresponding behavioral specification (coverage theater).
-
-3. **Non-Compliance Handling**
-   - Submitting a PR with non-homomorphic tests (mechanism-coupled, refactoring-fragile, or non-requisite variety) will trigger a **Critical Test Integrity Review**.
-   - Violations require test rewrites targeting problem structure before merge.
-
-4. **Escalation**
-   - Repeated violations will trigger a **Formal Compliance Audit**.
-
----
-
-## 5. Practical Application
-
-### 5.1 Test Class Naming
+## Test class naming
 
 Class names and docstrings should be **user questions**, not implementation concepts.
 
@@ -48,7 +29,7 @@ class TestFoldConsistency:
 
 Each class answers one specific question the user has.
 
-### 5.2 Assert Against Known Values
+## Assert against known values
 
 Never assert `is not None` or check column existence. Assert against expected values.
 
@@ -74,7 +55,7 @@ def test_best_improvement_maps_to_known_trade(self, experiment):
 
 The good test sets up a scenario where we *know* what the answer should be.
 
-### 5.3 Caching Tests Need Fresh Instances
+## Caching tests need fresh instances
 
 To verify caching, create separate instances with the same config.
 
@@ -97,7 +78,7 @@ def test_shared_baseline_trains_once(self, make_experiment):
     assert training_calls["shared"] == 1
 ```
 
-### 5.4 No Fixtures in Specs
+## No fixtures in specs
 
 Specs describe *what*, not *how*. Implementation details like fixtures belong in test files, not planning docs.
 
@@ -117,10 +98,20 @@ class TestUncertaintyQuantification:
         assert result.p_improvement > 0.9
 ```
 
-### 5.5 Diagnostic
+## Before writing a test
 
-Before writing a test:
 1. What user question does this class answer?
 2. What known expected value can I assert against?
 3. Am I testing state or behavior? (Behavior survives refactoring)
 4. Would this break if I renamed a column? (If yes, rewrite)
+
+## Review symptoms
+
+When reviewing tests, treat each of these as a symptom that a test is coupled to solution
+structure rather than problem structure. Each points at the directive it breaks; the fix is
+to rewrite the test to target the observable outcome.
+
+- [ ] Mocks internal collaborators or asserts on call sequences — mechanism coupling (`CIA-8.2`).
+- [ ] Breaks during a pure refactoring even though behavior was preserved — solution-structure coupling (`CIA-8.4`).
+- [ ] Has a case that cannot be traced to a real user scenario — non-requisite variety (`CIA-8.3`).
+- [ ] Adds coverage with no corresponding behavioral specification — coverage theater (`CIA-8.5`).
