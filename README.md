@@ -2,12 +2,13 @@
 
 ## What this is
 
-The shared Claude Code instruction set for tmrtx repos — 4 governance policies
-(homomorphism, CIA-7, CIA-8, CIA-9) and 5 workflow skills (specification,
-implementation-loop, commit-protocol, pull-request, scope-issue) — packaged as
-marketplace **`agentic-harness`** containing the single plugin **`harness`**.
-Consumer repos import the plugin instead of carrying copy-pasted instruction files
-that drift apart.
+The shared Claude Code instruction set for tmrtx repos — a body of governance policies
+and workflow skills packaged as marketplace **`agentic-harness`** containing the single
+plugin **`harness`**. Each skill lives in its own `plugins/harness/skills/<name>/`
+directory and declares its own purpose, code, and invocation in `SKILL.md` frontmatter;
+that directory is the authoritative inventory, so this README describes the conventions
+rather than restating the list. Consumer repos import the plugin instead of carrying
+copy-pasted instruction files that drift apart.
 
 Repo layout:
 
@@ -20,15 +21,9 @@ agentic-harness/
         ├── .claude-plugin/
         │   └── plugin.json               # plugin manifest — deliberately NO version field
         └── skills/
-            ├── commit-protocol/SKILL.md
-            ├── executable-expectations/SKILL.md
-            ├── homomorphism/SKILL.md
-            ├── implementation-loop/SKILL.md
-            ├── implementation-principles/SKILL.md
-            ├── pull-request/SKILL.md
-            ├── scope-issue/SKILL.md
-            ├── single-source-of-truth/SKILL.md
-            └── specification/SKILL.md
+            └── <name>/                   # one directory per skill (the inventory)
+                ├── SKILL.md              # required — frontmatter declares name, code, invocation
+                └── …                     # optional supporting files, loaded on demand
 ```
 
 ## Update propagation
@@ -117,18 +112,16 @@ By default consumers track `main` (latest SHA). To pin:
 
 ## Skill namespacing
 
-Plugin skills are namespaced `harness:<skill>`. User-invocable skills get a slash
-command form; the three `user-invocable: false` governance policies have no slash form
-and are model-loaded via the Skill tool.
+Plugin skills are namespaced `harness:<skill>`, where `<skill>` is the directory name.
+How a skill is invoked follows from its own `SKILL.md` frontmatter — the frontmatter *is*
+the registry, so there is no table here to keep in sync (this is `CIA-9` applied to the
+README itself):
 
-| Skill | Code | Invocation |
-|---|---|---|
-| `harness:commit-protocol` | — | `/harness:commit-protocol` |
-| `harness:executable-expectations` | `CIA-8` | model-invoked only |
-| `harness:homomorphism` | `homomorphism` | model-invoked only |
-| `harness:implementation-loop` | — | `/harness:implementation-loop` |
-| `harness:implementation-principles` | `CIA-7` | model-invoked only |
-| `harness:pull-request` | — | `/harness:pull-request` |
-| `harness:scope-issue` | — | `/harness:scope-issue` |
-| `harness:single-source-of-truth` | `CIA-9` | `/harness:single-source-of-truth` |
-| `harness:specification` | — | `/harness:specification` |
+- **Slash form** — a skill is user-invocable as `/harness:<skill>` unless its frontmatter
+  sets `user-invocable: false`, in which case Claude loads it via the Skill tool and/or
+  its `paths:` globs auto-activate it while matching files are open.
+- **Code** — a governance policy declares a canonical `code:` (e.g. `CIA-8`); everything
+  else cites that code. The set of declared codes is the registry (see `CIA-9`).
+- **Supporting files** — a skill's larger, task-scoped material lives in plain `.md` files
+  beside its `SKILL.md` and loads only when `SKILL.md` links to it (progressive
+  disclosure).
