@@ -13,7 +13,7 @@ the diff - the cause that forced it and the reasoning behind the solution.
 Its message must give causal, teleological, and practical understanding of the commit.
 
 1. **Pre-commit gate:** All tests must pass before committing.
-2. Commit Title Format: <type>[<component>]: <action-verb> <what-changed>
+2. Commit Title Format: <type>[OPTIONAL:<silo>][<component>]: <action-verb> <what-changed>
 3. Commit Body Structure: Your commit message body should lead to reviewers gaining a causal, teleological and practical understanding of the commit:
    1. [PROBLEM] - Problem Statement: Formulate the problem that this commit will address (content after `[PROBLEM]` line).
    2. [CAUSE] - Root-Cause Analysis: Elaborate the causal mechanics that created this problem. What assumptions, design decisions, or implementation details led to this issue? (content after `[CAUSE]` line).
