@@ -4,27 +4,18 @@
 
 The shared Claude Code instruction set for tmrtx repos — a body of governance policies
 and workflow skills packaged as marketplace **`agentic-harness`** containing the single
-plugin **`harness`**. Each skill lives in its own `plugins/harness/skills/<name>/`
-directory and declares its own purpose, code, and invocation in `SKILL.md` frontmatter;
-that directory is the authoritative inventory, so this README describes the conventions
-rather than restating the list. Consumer repos import the plugin instead of carrying
-copy-pasted instruction files that drift apart.
+plugin **`harness`**.
 
-Repo layout:
+## Working in the repository
 
-```
-agentic-harness/
-├── .claude-plugin/
-│   └── marketplace.json                  # marketplace catalog (repo root)
-└── plugins/
-    └── harness/
-        ├── .claude-plugin/
-        │   └── plugin.json               # plugin manifest — deliberately NO version field
-        └── skills/
-            └── <name>/                   # one directory per skill (the inventory)
-                ├── SKILL.md              # required — frontmatter declares name, code, invocation
-                └── …                     # optional supporting files, loaded on demand
-```
+For idioms, patterns, and best practices, your ONLY sources are official
+Anthropic documentation: docs.claude.com, and anthropic.com pages authored by
+Anthropic (e.g. "Claude Code: Best practices for agentic coding" and related
+engineering posts).
+
+Do NOT use any non-Anthropic source. Fetch and read the actual doc pages; do not
+answer from memory alone. If a page 404s, find its current location via the docs
+site navigation.
 
 ## Update propagation
 
@@ -109,19 +100,3 @@ By default consumers track `main` (latest SHA). To pin:
 4. **Stable/latest channels**: run two marketplaces (e.g. this repo at `main` as
    *latest* and a second marketplace entry pinned to a tag as *stable*) and let each
    consumer choose which one to enable.
-
-## Skill namespacing
-
-Plugin skills are namespaced `harness:<skill>`, where `<skill>` is the directory name.
-How a skill is invoked follows from its own `SKILL.md` frontmatter — the frontmatter *is*
-the registry, so there is no table here to keep in sync (this is `CIA-9` applied to the
-README itself):
-
-- **Slash form** — a skill is user-invocable as `/harness:<skill>` unless its frontmatter
-  sets `user-invocable: false`, in which case Claude loads it via the Skill tool and/or
-  its `paths:` globs auto-activate it while matching files are open.
-- **Code** — a governance policy declares a canonical `code:` (e.g. `CIA-8`); everything
-  else cites that code. The set of declared codes is the registry (see `CIA-9`).
-- **Supporting files** — a skill's larger, task-scoped material lives in plain `.md` files
-  beside its `SKILL.md` and loads only when `SKILL.md` links to it (progressive
-  disclosure).
