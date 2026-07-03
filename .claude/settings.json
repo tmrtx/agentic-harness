@@ -1,0 +1,11 @@
+{
+  "extraKnownMarketplaces": {
+    "agentic-harness": {
+      "source": { "source": "github", "repo": "tmrtx/agentic-harness" },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "harness@agentic-harness": true
+  }
+}
