@@ -1,0 +1,12 @@
+# OS artifacts
+.DS_Store
+
+# Editor/tool droppings
+*.log
+
+# Local Claude Code state (per-user, never shared)
+.claude/settings.local.json
+
+# NOTE: deliberately no blanket `*.json` ignore — the plugin and marketplace
+# manifests (.claude-plugin/marketplace.json, plugins/harness/.claude-plugin/plugin.json)
+# are JSON and must stay tracked.
