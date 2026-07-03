@@ -15,6 +15,8 @@ repositories. See `README.md` for propagation, onboarding, and pinning details.
   must exit 0 with only the no-version warning.
 - Skills live at `plugins/harness/skills/<name>/SKILL.md` — one home per concept; consumer
   repos reference these, never copy them.
+- Agents live at `plugins/harness/agents/<name>.md` — the same one-home rule: delegation
+  prompts reference the committed definition instead of restating its criteria.
 
 ## Self-consumption
 
