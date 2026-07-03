@@ -6,6 +6,9 @@ description: CIA-7 — mandatory preparatory-refactoring principles that keep co
 user-invocable: false
 paths:
   - "**/*.py"
+  - "**/*.nix"
+  - "**/*.hs"
+  - "**/*.el"
 ---
 
 # CIA-7: Implementation Principles

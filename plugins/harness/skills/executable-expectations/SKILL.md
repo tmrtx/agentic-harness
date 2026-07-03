@@ -6,6 +6,9 @@ description: CIA-8 — mandatory test-first regulations; tests are written befor
 user-invocable: false
 paths:
   - "**/*.py"
+  - "**/*.nix"
+  - "**/*.hs"
+  - "**/*.el"
 ---
 
 # CIA-8: Executable Expectations
