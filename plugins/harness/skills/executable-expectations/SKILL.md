@@ -5,10 +5,22 @@ prerequisites: homomorphism
 description: CIA-8 — mandatory test-first regulations; tests are written before implementation, assert observable outcomes rather than mechanisms, survive refactoring unchanged, and serve as the specification. Use whenever writing or modifying tests, implementing a feature or fix that changes behavior, doing TDD, or evaluating test coverage or test quality.
 user-invocable: false
 paths:
+  # Python
   - "**/*.py"
+  # Nix
   - "**/*.nix"
+  # Haskell — incl. xmobar's Haskell-syntax config, which carries no .hs extension
   - "**/*.hs"
+  - "**/.xmobarrc"
+  # Emacs Lisp — incl. the Spacemacs dotfile, which carries no .el extension
   - "**/*.el"
+  - "**/.spacemacs"
+  # Go
+  - "**/*.go"
+  # Shell — scripts plus the sourced bash rc/profile dotfiles
+  - "**/*.sh"
+  - "**/.bashrc*"
+  - "**/.bash_profile"
 ---
 
 # CIA-8: Executable Expectations

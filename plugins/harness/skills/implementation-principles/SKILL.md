@@ -5,10 +5,22 @@ prerequisites: homomorphism
 description: CIA-7 — mandatory preparatory-refactoring principles that keep code structure homomorphic to the problem structure (make the change easy first, requisite variety, cohesion, coupling, small steps, connascence). Use whenever changing code structure — refactoring, extracting, moving, or reshaping code — or when a feature or fix does not land cleanly in the existing structure.
 user-invocable: false
 paths:
+  # Python
   - "**/*.py"
+  # Nix
   - "**/*.nix"
+  # Haskell — incl. xmobar's Haskell-syntax config, which carries no .hs extension
   - "**/*.hs"
+  - "**/.xmobarrc"
+  # Emacs Lisp — incl. the Spacemacs dotfile, which carries no .el extension
   - "**/*.el"
+  - "**/.spacemacs"
+  # Go
+  - "**/*.go"
+  # Shell — scripts plus the sourced bash rc/profile dotfiles
+  - "**/*.sh"
+  - "**/.bashrc*"
+  - "**/.bash_profile"
 ---
 
 # CIA-7: Implementation Principles
