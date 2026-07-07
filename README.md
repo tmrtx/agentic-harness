@@ -72,6 +72,28 @@ shared settings by adding to the repo's `.claude/settings.local.json`:
 }
 ```
 
+## Headless / daemon consumers: load the plugin locally
+
+The marketplace path above assumes an interactive user: the one-time consent flow
+needs a human to accept it, and keeping the shared plugin store healthy needs git
+credentials at session start (see the auto-update caveat below). A headless
+consumer — a daemon driving sessions through the Agent SDK, CI — has neither: it
+cannot answer the consent prompts, and when the store breaks it cannot repair it;
+every `harness:*` invocation then fails with `Unknown skill` (this is exactly how
+tmrtx/pipeline's executioner loop failed).
+
+Headless consumers should bypass the store entirely and serve the plugin from a
+clone they own and refresh themselves:
+
+- CLI: `claude --plugin-dir <clone>/plugins/harness`
+- Agent SDK: `ClaudeAgentOptions(plugins=[{"type": "local", "path": "<clone>/plugins/harness"}])`
+
+A local plugin wins over an installed marketplace copy of the same name, so this
+composes with a repo whose `.claude/settings.json` also enables
+`harness@agentic-harness` for interactive users. Track releases the same way any
+consumer does — pull the clone before session start (`git pull --ff-only`); the
+clone's commit SHA is the version being served.
+
 ## Private-repo auto-update caveat (GH_TOKEN / GITHUB_TOKEN)
 
 This repo is **private**. Interactive installs and manual `/plugin marketplace update`
