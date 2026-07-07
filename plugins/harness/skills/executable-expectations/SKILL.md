@@ -64,9 +64,9 @@ Below are **non-negotiable** directives constituting the CIA-8 Testing Integrity
    - **Rationale**: The refactor step is the proof of homomorphism. If tests let you freely restructure code without breaking, they're testing the right thing. If they break, they were coupled to solution structure.
    - **Diagnostic**: Before committing tests, mentally simulate refactoring the implementation. Would the tests still pass? If not, you're testing the wrong thing.
 
-5. **CIA-8.5 Tests Are the Specification**
+5. **CIA-8.5 Tests Are the Expectations**
    - *Guiding Principle*: "Tests define the formal contract for the system."
-   - **Requirement**: All behavioral requirements must be expressed as tests. If behavior isn't specified in a test, it's not a requirement—it's an implementation accident that may change. Non-cosmetic changes are prohibited without accompanying test additions/modifications.
+   - **Requirement**: All behavioral requirements must be expressed as tests. If behavior isn't specified in a test, it's not a requirement—it's an implementation accident that may change. Non-cosmetic changes need accompanying test additions/modifications.
    - **Rationale**: Tests as specification ensures the problem structure is explicitly captured. Reading the tests should tell you what the system does from a user's perspective, without needing to read the implementation.
    - **Diagnostic**: Can someone understand the system's behavior by reading only the tests? If tests only make sense after reading the code, they're not specifying problem structure—they're annotating solution structure.
 

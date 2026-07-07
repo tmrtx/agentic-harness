@@ -5,105 +5,45 @@ those directives, so see the control for the contract they serve. The sections b
 what homomorphic tests look like in code, and how to recognize a test that has drifted onto
 solution structure.
 
-## Test class naming
+## Every case must earn its variety
 
-Class names and docstrings should be **user questions**, not implementation concepts.
+Each case names a distinct scenario — a different branch, boundary, or failure mode in
+problem terms (`CIA-8.3`).
 
 **Bad:**
 ```python
-class TestExperimentPairedLosses:  # Implementation concept
-class TestExperimentAnswersResearcherQuestions:  # Vague, not a question
+@pytest.mark.parametrize("qty", [1, 2, 3, 4, 5, 6, 7, 8, 9])
+def test_no_discount_below_ten(qty): ...   # nine cases, one behavior — noise
 ```
 
 **Good:**
 ```python
-class TestUncertaintyQuantification:
-    """Does the candidate improve on the baseline?"""
-
-class TestModelCaching:
-    """Are identical configs reused across experiments?"""
-
-class TestFoldConsistency:
-    """Is the improvement consistent across time periods?"""
+@pytest.mark.parametrize("qty, total", [(9, 90), (10, 95)])  # last full-price unit count,
+def test_discount_starts_at_ten_units(qty, total): ...       # first discounted one
 ```
 
-Each class answers one specific question the user has.
+If two cases can only be told apart by reading the implementation, one of them is
+coverage theater (`CIA-8.5`).
 
-## Assert against known values
+## Name tests after behavior
 
-Never assert `is not None` or check column existence. Assert against expected values.
+Test names and docstrings are **user questions**, not implementation concepts. A reader
+should learn what the system does from the names alone, without opening the
+implementation (`CIA-8.5`).
 
 **Bad:**
 ```python
-def test_can_trace_to_trade(self, experiment):
-    result = experiment.run(config)
-    best = result.paired_losses.nlargest(1, "difference").iloc[0]
-
-    assert best["symbol"] is not None  # What does this prove?
-    assert best["timestamp"] is not None
+class TestOrderServiceImpl:   # implementation concept
+class TestHelpers:            # organized by code layout, not behavior
+def test_process_2(): ...     # names nothing
 ```
 
 **Good:**
 ```python
-def test_best_improvement_maps_to_known_trade(self, experiment):
-    result = experiment.run(config_with_known_best_trade)
-    best = result.paired_losses.nlargest(1, "difference").iloc[0]
-
-    assert best["symbol"] == "BTCUSDT"
-    assert best["timestamp"] == expected_timestamp
+class TestVolumeDiscount:
+    def test_discount_applies_at_ten_units(self): ...
+    def test_nine_units_pay_full_price(self): ...
 ```
-
-The good test sets up a scenario where we *know* what the answer should be.
-
-## Caching tests need fresh instances
-
-To verify caching, create separate instances with the same config.
-
-**Bad:**
-```python
-def test_caching(self, experiment):
-    experiment.run(config)  # First run
-    experiment.run(config)  # Same object - proves nothing about cache
-```
-
-**Good:**
-```python
-def test_shared_baseline_trains_once(self, make_experiment):
-    exp1 = make_experiment(baseline=shared, candidate=a)
-    exp2 = make_experiment(baseline=shared, candidate=b)
-
-    exp1.run(config1)  # Trains shared + a
-    exp2.run(config2)  # Reuses shared, trains only b
-
-    assert training_calls["shared"] == 1
-```
-
-## No fixtures in specs
-
-Specs describe *what*, not *how*. Implementation details like fixtures belong in test files, not planning docs.
-
-**Bad (in a spec):**
-```python
-@pytest.fixture
-def make_training_fn():
-    def _make(samples):
-        # ... implementation details
-```
-
-**Good (in a spec):**
-```python
-class TestUncertaintyQuantification:
-    def test_better_candidate_shows_high_confidence(self, experiment):
-        result = experiment.run(config_where_candidate_improves)
-        assert result.p_improvement > 0.9
-```
-
-## Before writing a test
-
-1. What user question does this class answer?
-2. What known expected value can I assert against?
-3. Am I testing state or behavior? (Behavior survives refactoring)
-4. Would this break if I renamed a column? (If yes, rewrite)
 
 ## Review symptoms
 
