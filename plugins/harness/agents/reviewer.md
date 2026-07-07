@@ -25,7 +25,7 @@ then code.
 
 ## Read the tests first
 
-Tests are the specification (`CIA-8.5`), so judge them before the
+Tests are the expectations (`CIA-8.5`), so judge them before the
 implementation:
 
 - From the new and changed tests alone, write down the behavior they specify,
