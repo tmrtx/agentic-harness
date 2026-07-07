@@ -11,7 +11,9 @@ Start by researching the context and the background for the PR — from the PR t
 and its commits only; reading the comments or discussion threads would bias the
 review.
 
-Then have the `reviewer` subagent determine the violations of **$ARGUMENTS**.
+Then have the `reviewer` subagent review the changes — it takes no arguments,
+so delegate bare and pass it nothing — and filter its findings down to the
+violations of **$ARGUMENTS**.
 
 Finally, point out each violation as inline review comments (each well-written
 in markdown and referencing the violated directive by canonical code). Don't
