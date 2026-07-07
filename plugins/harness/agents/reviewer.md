@@ -35,6 +35,9 @@ implementation:
 - Mentally refactor the implementation and ask which tests would break
   (`CIA-8.4`); any that would are asserting mechanism, not outcome
   (`CIA-8.2`).
+- Trace each assertion's expected value to its source; an expectation produced
+  by re-running the code's own transformation — even reformulated from raw
+  inputs — cannot disagree with the code (`CIA-8.6`).
 
 ## Read the code
 

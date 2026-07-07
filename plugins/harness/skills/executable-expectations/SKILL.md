@@ -2,7 +2,7 @@
 name: executable-expectations
 code: CIA-8
 prerequisites: homomorphism
-description: CIA-8 — mandatory test-first regulations; tests are written before implementation, assert observable outcomes rather than mechanisms, survive refactoring unchanged, and serve as the specification. Use whenever writing or modifying tests, implementing a feature or fix that changes behavior, doing TDD, or evaluating test coverage or test quality.
+description: CIA-8 — mandatory test-first regulations; tests are written before implementation, assert observable outcomes rather than mechanisms, derive expected values independently of the implementation, survive refactoring unchanged, and serve as the specification. Use whenever writing or modifying tests, implementing a feature or fix that changes behavior, doing TDD, or evaluating test coverage or test quality.
 user-invocable: false
 paths:
   - "**/*.py"
@@ -42,7 +42,7 @@ Below are **non-negotiable** directives constituting the CIA-8 Testing Integrity
 1. **CIA-8.1 Write Tests Before Implementation**
    - *Guiding Principle*: "A failing test defines the gap you're about to fill."
    - **Requirement**: Every new or modified feature must begin with at least one failing test that captures intended behavior before coding the solution.
-   - **Rationale**: Writing tests first forces problem-structure thinking before a solution structure exists to couple to. Post-hoc tests tend to mirror implementation because that's what's in front of you. Test-first ensures homomorphism by design.
+   - **Rationale**: Writing tests first forces problem-structure thinking before a solution structure exists to couple to. Post-hoc tests tend to mirror implementation because that's what's in front of you. But order alone is not independence: a test derived from the same formula the code will implement mirrors the code before the code exists (`CIA-8.6`).
 
 2. **CIA-8.2 Test Outcomes, Not Mechanisms**
    - *Guiding Principle*: "Validate what the system does, not how it does it."
@@ -69,6 +69,12 @@ Below are **non-negotiable** directives constituting the CIA-8 Testing Integrity
    - **Requirement**: All behavioral requirements must be expressed as tests. If behavior isn't specified in a test, it's not a requirement—it's an implementation accident that may change. Non-cosmetic changes are prohibited without accompanying test additions/modifications.
    - **Rationale**: Tests as specification ensures the problem structure is explicitly captured. Reading the tests should tell you what the system does from a user's perspective, without needing to read the implementation.
    - **Diagnostic**: Can someone understand the system's behavior by reading only the tests? If tests only make sense after reading the code, they're not specifying problem structure—they're annotating solution structure.
+
+6. **CIA-8.6 Independent Oracles**
+   - *Guiding Principle*: "A test must be able to disagree with the code it tests."
+   - **Requirement**: Expected values must come from a source independent of the implementation: hand-computed constants, constructed inputs with analytically known answers, properties and invariants (causality, monotonicity, conservation, orderings), or contrasts between scenarios. A test must never derive its expectation by re-executing the transformation under test—nor an equivalent reformulation of it, even one recomputed "independently" from raw inputs.
+   - **Rationale**: A mirrored oracle is the degenerate case of solution-structure coupling: the test does not merely couple to the solution, it *restates* it, so code is verified against itself. It reproduces its author's misunderstanding—a misread spec yields the same wrong value on both sides and the test passes—and it silently blesses divergences from the spec instead of surfacing them. Such a test can catch wiring mistakes, nothing more. This applies with full force when the specification is itself a formula: re-encoding the formula in the test satisfies `CIA-8.5` in letter while voiding it in substance.
+   - **Diagnostic**: For each assertion, ask: "Where does the expected value come from—could this test fail if I had misread the spec?" If the expectation is produced by the same computation the implementation performs, rewrite the oracle, not the assertion: pin the spec's claims on cases whose answers are knowable *without executing it*—degenerate inputs with closed-form answers, required invariances, known orderings.
 
 ---
 
