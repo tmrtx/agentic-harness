@@ -4,6 +4,12 @@ This repo is a Claude Code plugin marketplace: the `harness` plugin under `plugi
 distributes the shared instruction set (governance policies + workflow skills) to consumer
 repositories. See `README.md` for propagation, onboarding, and pinning details.
 
+## Staleness prevention
+
+When working on any task here, spawn one or more Opus subagents to research
+current best practices for the relevant topic/s from the Anthropic
+documentation, ensuring the repository remains at the methodology frontier.
+
 ## Invariants
 
 - **Never add a `version` field to `plugins/harness/.claude-plugin/plugin.json`.**
@@ -13,15 +19,9 @@ repositories. See `README.md` for propagation, onboarding, and pinning details.
 - **Every push to `main` is a release.** Consumers auto-update at their next session start.
   Gate before pushing: `claude plugin validate plugins/harness && claude plugin validate .`
   must exit 0 with only the no-version warning.
-- Skills live at `plugins/harness/skills/<name>/SKILL.md` — one home per concept; consumer
-  repos reference these, never copy them.
-- Agents live at `plugins/harness/agents/<name>.md` — the same one-home rule: delegation
-  prompts reference the committed definition instead of restating its criteria.
 
 ## Self-consumption
 
-This repo installs its own plugin (`harness@agentic-harness`, GitHub source), so the
-methodology skills (`harness:commit-protocol`, `harness:pull-request`, `harness:specification`,
-…) apply when working here — follow the commit protocol for every commit. Sessions serve the
-last *pushed* release, one step behind the working tree; after pushing a skill change, run
-`/reload-plugins` to use it immediately.
+This repository installs its own plugin (`harness@agentic-harness`, GitHub
+source), so the governance policies and workflow skills defined here apply when
+contributin.
