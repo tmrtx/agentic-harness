@@ -72,25 +72,12 @@ shared settings by adding to the repo's `.claude/settings.local.json`:
 }
 ```
 
-## Private-repo auto-update caveat (GH_TOKEN / GITHUB_TOKEN)
-
-This repo is **private**. Interactive installs and manual `/plugin marketplace update`
-use your normal git auth (gh CLI, keychain, ssh-agent). But **background startup
-auto-updates run without git credential helpers** — if no token is present in the shell
-environment, auto-update of the private marketplace silently fails.
-
-- Export `GH_TOKEN` or `GITHUB_TOKEN` (with `repo` scope) in the shell environment
-  that launches Claude Code.
-- Set `CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE=1` to prevent the marketplace
-  cache from being wiped when a background pull fails.
-- Fallback: the manual update path above always works via your interactive git auth.
-
 ## Pinning options
 
 By default consumers track `main` (latest SHA). To pin:
 
 1. **Pin the marketplace at add time**: `claude plugin marketplace add tmrtx/agentic-harness@<ref>`
-   (branch, tag, or commit SHA).
+   (branch or tag; marketplace sources do not take a raw commit SHA).
 2. **Pin a plugin source in `marketplace.json`**: add `ref` (branch/tag) or `sha`
    (exact commit) to the plugin's `source` entry — `sha` wins if both are set.
 3. **Explicit `version` freeze**: adding a `version` string to `plugin.json` freezes
