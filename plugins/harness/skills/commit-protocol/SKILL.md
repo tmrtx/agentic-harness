@@ -13,10 +13,10 @@ Its message must give teleological, causal, and practical understanding of the c
 2. Commit Title Format: <type>[OPTIONAL:<silo>][<component>]: <action-verb> <what-changed>
 3. Commit Body Structure: Commit message body should lead to reviewers gaining a causal, teleological and practical understanding of the commit:
    1. [PROBLEM] - Problem Statement: Formulate the problem that this commit will address (content after `[PROBLEM]` line).
-   2. [CAUSE] - Root-Cause Analysis: Elaborate the causal mechanics that created this problem (content after `[CAUSE]` line).
+   2. [ROOT-CAUSE] - Root-Cause Analysis: Elaborate the causal mechanics that created this problem (content after `[ROOT-CAUSE]` line).
    3. [CHANGE] - The Change: Describe your approach and justify this approach over alternatives considered (content after `[CHANGE]` line).
 
 Writing instructions:
-- Follow BLUF (bottom line up front), Minto Pyramid, Given-New Principles for writing the commit message.
+- Adhere to Zinsser's philosophy of writing well, follow BLUF (bottom line up front), Minto Pyramid, Given-New Principles for writing the commit message.
 - Prefer an active voice over a passive voice.
 - Avoid mixing abstraction levels in the text.
