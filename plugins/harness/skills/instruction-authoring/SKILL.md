@@ -1,12 +1,12 @@
 ---
 name: instruction-authoring
-description: Write an instruction artifact — a skill, slash command, or subagent prompt — that transmits intent instead of dumping procedure, so its owner keeps it without a refinement round. Use whenever authoring a new skill, command, or agent prompt, revising or tightening an existing one, or cutting an over-built draft back to its intent. For crafting the artifact itself — not for organizing or deduplicating an instruction corpus.
+description: Write an instruction artifact — a skill, slash command, or subagent prompt — that transmits intent instead of dumping procedure. Use whenever authoring a new skill, command, or agent prompt, revising or tightening an existing one, or cutting an over-built draft back to its intent. For crafting the artifact itself — not for organizing or deduplicating an instruction corpus.
 ---
 
 # Instruction Authoring
 
-An instruction artifact — a skill, a command, an agent prompt — briefs an agent
-that will act with none of the context you hold now. Transmit the goal, the
+An instruction artifact briefs an agent that will act with none of the context
+you hold now. Transmit the goal, the
 test that tells whether it is met, and the constraints the agent cannot infer;
 trust it with everything else. Procedure does not survive contact with the
 task; intent does. Size to the non-inferable payload — usually a few lines —
@@ -31,8 +31,9 @@ Classify by who supplies the intent, not by the noun the request used — "a
 task I keep giving you" is a user-run command even when the requester calls it
 a skill.
 
-- A **command the user runs deliberately**: disable model invocation, take the
-  argument, keep the description a label, open with the task itself — no title.
+- A **command the user runs deliberately**: disable model invocation; declare
+  the argument hint and read the argument as the request defines it; keep the
+  description a label; open with the task itself — no title.
 - A **skill that fires on its own**: the description is the trigger — what it
   does and when to use it; purpose, never an inventory of contents.
 - A **subagent receiving delegated work**: its body is its whole world —
