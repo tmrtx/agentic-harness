@@ -6,11 +6,11 @@ description: Write an instruction artifact — a skill, slash command, or subage
 # Instruction Authoring
 
 An instruction artifact briefs an agent that will act with none of the context
-you hold now. Transmit the goal, the
-test that tells whether it is met, and the constraints the agent cannot infer;
-trust it with everything else. Procedure does not survive contact with the
-task; intent does. Size to the non-inferable payload — usually a few lines —
-and add sections, files, or scripts only when the payload forces them.
+you hold now. Transmit the goal, the test that tells whether it is met, and
+the constraints the agent cannot infer; trust it with everything else.
+Procedure does not survive contact with the task; intent does. Size to the
+non-inferable payload — usually a few lines — and add sections, files, or
+scripts only when the payload forces them.
 
 ## The request is the spec
 
