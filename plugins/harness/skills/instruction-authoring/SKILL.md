@@ -1,81 +1,50 @@
 ---
 name: instruction-authoring
-description: Write an instruction artifact — a skill, slash command, or subagent prompt — that transmits intent instead of dumping procedure, so its owner keeps it without a refinement round. Use whenever authoring a new skill, command, or agent prompt, revising one that isn't landing, or cutting an over-built draft back to its intent. For crafting the artifact itself — not for organizing or deduplicating an instruction corpus.
+description: Write an instruction artifact — a skill, slash command, or subagent prompt — that transmits intent instead of dumping procedure, so its owner keeps it without a refinement round. Use whenever authoring a new skill, command, or agent prompt, revising or tightening an existing one, or cutting an over-built draft back to its intent. For crafting the artifact itself — not for organizing or deduplicating an instruction corpus.
 ---
 
 # Instruction Authoring
 
 An instruction artifact — a skill, a command, an agent prompt — briefs an agent
-that will act with none of the context you hold now. Transmit three things: the
-goal, the test that tells whether the goal is met, and the constraints the agent
-cannot infer. Trust it with everything else. Steps do not survive contact with
-the task; intent does.
-
-## Size it before you write
-
-Answer for the task at hand, not in the abstract:
-
-- **What is this for?** The one goal that, unmet, makes the artifact worthless.
-- **Who invokes it?** A command the user runs supplies intent at call time and
-  can stay near-empty; an artifact that fires on its own carries intent itself.
-- **What does the agent already do right?** That, you do not write.
-- **What can it not infer?** The fragile contract, the exact format, the tool
-  invoked just so. That is the payload.
-
-The answers set the size — usually a few lines. Add sections, references, or
-scripts only when an answer above forces them.
+that will act with none of the context you hold now. Transmit the goal, the
+test that tells whether it is met, and the constraints the agent cannot infer;
+trust it with everything else. Procedure does not survive contact with the
+task; intent does. Size to the non-inferable payload — usually a few lines —
+and add sections, files, or scripts only when the payload forces them.
 
 ## The request is the spec
 
-When the requester has stated the task in their own words, those words are the
-artifact's core: embed them. An artifact that restates its request as a heading,
-an intro, and a pipeline has replaced the intent with a guess at a procedure.
-Add only what the request cannot say for itself: the invocation wiring and the
-non-inferable contracts.
+When the requester states the task in their own words, those words are the
+artifact's core: embed them, first person intact. Do not paraphrase them into
+a title and an intro, re-explain them as numbered steps, expand them into a
+taxonomy, or armor them with self-policing invariants — a request restated as
+a pipeline has replaced intent with a guess at procedure. Add only what the
+request cannot say: the invocation wiring, and any contract the agent could
+not reconstruct — the exact tool call, the format that breaks when varied.
+Where such a contract exists but you do not know it, point at its source of
+truth instead of inventing it. Cutting a contract the task needs is as wrong
+as adding procedure it does not.
 
-## Specify as tightly as the task is fragile
+## Who invokes it decides its shape
 
-A step that breaks when permuted — a tool invoked just so, an external
-contract — gets the exact sequence; that precision is payload, not procedure.
-A judgment call — several valid approaches, context deciding — gets the goal
-and latitude; a procedure there only fights the agent. Both directions fail:
-stripping a sequence a fragile step needs breaks the artifact as surely as
-caging a judgment call in invented steps bloats it. Carry the task's variety —
-no more, no less.
-
-## Wire the invocation
+Classify by who supplies the intent, not by the noun the request used — "a
+task I keep giving you" is a user-run command even when the requester calls it
+a skill.
 
 - A **command the user runs deliberately**: disable model invocation, take the
-  argument, keep the description a label — the user already knows what it does.
-- A **skill that fires on its own**: the description is the trigger the model
-  matches requests against — what it does and when to use it; purpose, never an
-  inventory of contents.
-- A **subagent receiving delegated work**: its description tells the delegator
-  when to reach for it; its body is the subagent's whole world, so everything
-  non-inferable goes in it.
+  argument, keep the description a label, open with the task itself — no title.
+- A **skill that fires on its own**: the description is the trigger — what it
+  does and when to use it; purpose, never an inventory of contents.
+- A **subagent receiving delegated work**: its body is its whole world —
+  everything non-inferable goes in it; its description tells the delegator
+  when to reach for it.
 
-Name it for its job; the folder name is the name. Keep the body one screen —
-it is paid for on every load. Long reference material earns a separate file
-only with a note saying when to open it.
-
-## Over-building, caught in the draft
-
-Read the draft against these; here the fix is always to cut:
-
-- **Manufactured procedure** — a taxonomy, request-shape, or format spec the
-  agent would have improvised correctly.
-- **Thoroughness past the boundary** — a section made "complete" by doing a
-  neighboring artifact's job.
-- **Ceremony** — the request restated as heading and intro, a section skeleton
-  nobody asked for.
-- **Apparatus on a hand-run command** — trigger phrases and self-policing
-  invariants on something the user invokes deliberately.
-- **Ban-lists and theater** — enumerated forbidden phrasings where one positive
-  rule suffices; processes no agent can perform.
+The folder name is the artifact's name. The body is paid for on every load —
+keep it one screen: past that you are elaborating, not briefing.
 
 ## Know it worked
 
-Test in a fresh session — the context you wrote in hides the gaps. Check
-separately that the artifact fires when it should, and that what it produces is
-right. It is finished when its owner keeps the next output without a round of
-corrections.
+Test in a fresh session; the context you wrote in hides the gaps. Check
+separately that the artifact fires when it should, and that what it produces
+is right. It is finished when its owner keeps the next output without a round
+of corrections.
