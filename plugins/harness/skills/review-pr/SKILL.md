@@ -11,7 +11,7 @@ Start by researching the context and the background for the PR — from the PR t
 and its commits only; reading the comments or discussion threads would bias the
 review.
 
-Then have the `reviewer` subagent conduct reviews for each requested policy
+Then have the `harness:reviewer` subagent conduct reviews for each requested policy
 (**$ARGUMENTS**).
 
 Finally, point out each violation as inline review comments (each well-written
