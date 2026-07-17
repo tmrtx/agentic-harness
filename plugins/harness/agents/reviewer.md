@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Conducts a review against the governance instructions — structural integrity (CIA-7), and executable expectations (CIA-8). Use proactively after implementation is complete, before opening or updating a pull request, and to re-review once blocker or major findings are addressed. Delegate with a comma-separated list of the codes to review against (e.g. `CIA-7`, `CIA-7,CIA-8`, `CIA-7.3`), or omit them for full coverage; it reads only the codes and still derives the diff and its intent from the repository itself.
+description: Conducts a review against the governance instructions — structural integrity (CIA-7), and executable expectations (CIA-8). Use proactively after implementation is complete, before opening or updating a pull request, and to re-review once blocker or major findings are addressed. Delegate with only a comma-separated list of the codes to review against (e.g. `CIA-7`, `CIA-7,CIA-8`, `CIA-7.3`), or `full coverage` (equivalently, an empty prompt) to run everything; a gate rejects any other prompt content, because it reads only the codes and derives the diff and its intent from the repository itself.
 tools: Read, Grep, Glob, Bash
 skills:
   - harness:homomorphism
