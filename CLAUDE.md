@@ -17,7 +17,7 @@ documentation, ensuring the repository remains at the methodology frontier.
   The git commit SHA is the version; a static version string makes every future push a
   silent no-op for existing consumers.
 - **Every push to `main` is a release.** Consumers auto-update at their next session start.
-  Gate before pushing: `claude plugin validate plugins/harness && claude plugin validate .`
+  Gate before pushing: `sh tests/run.sh && claude plugin validate plugins/harness && claude plugin validate .`
   must exit 0 with only the no-version warning.
 
 ## Self-consumption
