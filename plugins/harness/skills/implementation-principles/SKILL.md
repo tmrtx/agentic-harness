@@ -4,11 +4,6 @@ code: CIA-7
 prerequisites: homomorphism
 description: CIA-7 — mandatory preparatory-refactoring principles that keep code structure homomorphic to the problem structure (make the change easy first, requisite variety, cohesion, coupling, small steps, connascence). Use whenever changing code structure — refactoring, extracting, moving, or reshaping code — or when a feature or fix does not land cleanly in the existing structure.
 user-invocable: false
-paths:
-  - "**/*.py"
-  - "**/*.nix"
-  - "**/*.hs"
-  - "**/*.el"
 ---
 
 # CIA-7: Implementation Principles
@@ -23,17 +18,9 @@ This control defines mandatory **Preparatory Refactoring** regulations to mainta
 
 Code structure must be **homomorphic to the problem structure**.
 
-**Homomorphism litmus test**: a change in requirements should produce a code
-change proportional in size and in locality. If either condition fails—if a
-small requirement change forces a large rewrite, or scatters edits across many
-units—the code is non-homomorphic and must be refactored before the modification is made.
+**Homomorphism litmus test**: a change in requirements should produce a code change proportional in size and in locality. If either condition fails—if a small requirement change forces a large rewrite, or scatters edits across many units—the code is non-homomorphic and must be refactored before the modification is made.
 
-**Why this matters for code**: modifying non-homomorphic code compounds cost.
-Each mismatch between problem structure and code structure adds coupling. if
-requirements grow linearly (O(N)), the effort required to implement them will
-grow quadratically (O(N²)) or worse, each change will make the next harder. The
-time "saved" is borrowed at high interest—paid back through bugs, difficult
-debugging, and slower future development.
+**Why this matters for code**: modifying non-homomorphic code compounds cost. Each mismatch between problem structure and code structure adds coupling. if requirements grow linearly (O(N)), the effort required to implement them will grow quadratically (O(N²)) or worse, each change will make the next harder. The time "saved" is borrowed at high interest—paid back through bugs, difficult debugging, and slower future development.
 
 ---
 
@@ -77,7 +64,4 @@ Below are **non-negotiable** directives constituting the CIA-7 Implementation In
 
 ## 4. Practical Application
 
-The cognitive symptoms, connascence taxonomy, planning checklist, and anti-patterns
-that put these directives into practice live in
-[`preparatory-refactoring.md`](preparatory-refactoring.md). Open it when a change does
-not land cleanly and you need to reshape the structure first.
+The cognitive symptoms, connascence taxonomy, planning checklist, and anti-patterns that put these directives into practice live in [`preparatory-refactoring.md`](preparatory-refactoring.md). Open it when a change does not land cleanly and you need to reshape the structure first.

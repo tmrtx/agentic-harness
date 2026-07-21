@@ -3,10 +3,6 @@ name: single-source-of-truth
 code: CIA-9
 prerequisites: homomorphism
 description: CIA-9 — single-source-of-truth regulations for the governance corpus; one home per concept, reference by canonical code, no duplicated or drifting guidance. Use when creating or editing CLAUDE.md, skills, commands, rules, agent prompts, or any instruction/governance file.
-paths:
-  - "CLAUDE.md"
-  - ".claude/**/*.md"
-  - "agents/*.md"
 ---
 
 # CIA-9: Single Source of Truth

@@ -4,11 +4,6 @@ code: CIA-8
 prerequisites: homomorphism
 description: CIA-8 — mandatory test-first regulations; tests are written before implementation, assert observable outcomes rather than mechanisms, survive refactoring unchanged, and serve as the specification. Use whenever writing or modifying tests, implementing a feature or fix that changes behavior, doing TDD, or evaluating test coverage or test quality.
 user-invocable: false
-paths:
-  - "**/*.py"
-  - "**/*.nix"
-  - "**/*.hs"
-  - "**/*.el"
 ---
 
 # CIA-8: Executable Expectations
@@ -23,15 +18,9 @@ This control defines mandatory **Test-First** regulations to maintain **system i
 
 Tests must be **homomorphic to the problem structure**, not the solution structure.
 
-**Homomorphism litmus test**: a small change in requirements should produce a small,
-localized change in tests. A pure refactoring (structure changed, behavior preserved)
-should produce **zero** test changes.
+**Homomorphism litmus test**: a small change in requirements should produce a small, localized change in tests. A pure refactoring (structure changed, behavior preserved) should produce **zero** test changes.
 
-**Why this matters for tests**: non-homomorphic tests create false confidence. They
-pass when code matches an implementation pattern but fail to catch behavioral
-regressions. Worse, they resist refactoring—breaking whenever structure changes—creating
-pressure to avoid improving code. Tests coupled to solution structure are liabilities
-disguised as assets.
+**Why this matters for tests**: non-homomorphic tests create false confidence. They pass when code matches an implementation pattern but fail to catch behavioral regressions. Worse, they resist refactoring—breaking whenever structure changes—creating pressure to avoid improving code. Tests coupled to solution structure are liabilities disguised as assets.
 
 ---
 
@@ -74,6 +63,4 @@ Below are **non-negotiable** directives constituting the CIA-8 Testing Integrity
 
 ## 4. Practical Application
 
-The concrete practices that satisfy these directives — worked examples and a review
-checklist — live in [`test-writing.md`](test-writing.md). Open it when writing,
-structuring, or reviewing tests.
+The concrete practices that satisfy these directives — worked examples and a review checklist — live in [`test-writing.md`](test-writing.md). Open it when writing, structuring, or reviewing tests.
