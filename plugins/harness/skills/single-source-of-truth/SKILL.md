@@ -9,16 +9,11 @@ description: CIA-9 — single-source-of-truth regulations for the governance cor
 
 ## 1. Purpose & Scope
 
-This control defines mandatory **single-source-of-truth** regulations for the project's
-**governance corpus**—the files that tell agents how to work: `CLAUDE.md`, the `skills/`,
-the commands, the workflows, and the agent prompts.
+This control defines mandatory **single-source-of-truth** regulations for the project's **governance corpus**—the files that tell agents how to work: `CLAUDE.md`, the `skills/`, the commands, the workflows, and the agent prompts.
 
-It exists to prevent the organic growth of duplicated, drifting, and
-circularly-referenced guidance. Out of scope: code logic, data, and ordinary
-project documentation.
+It exists to prevent the organic growth of duplicated, drifting, and circularly-referenced guidance. Out of scope: code logic, data, and ordinary project documentation.
 
-Non-compliance compounds—copies diverge silently and end
-up contradicting one another.
+Non-compliance compounds—copies diverge silently and end up contradicting one another.
 
 ---
 
@@ -26,44 +21,20 @@ up contradicting one another.
 
 The governance corpus must be **homomorphic to the concept space**.
 
-**The corpus homomorphism test**: a change to "commit protocol" should have one local edit. If
-a single policy change forces edits across several files, the corpus is non-homomorphic
-and the concept has more than one home.
+**The corpus homomorphism test**: adding a single step to the way the agent creates commits should require a single local change. If that's not the case, then the corpus is non-homomorphic and needs to be refined.
 
-**Why this matters for governance**: duplicated guidance does not just bloat—it drifts
-into contradiction, and agents reading two copies receive conflicting instructions. The
-single source is the only one that can be trusted to be current.
+**Why this matters for governance**: nono-homomorphic instructions doesn't just bloat—it drifts into stale copies, contradiction, and agents reading two copies receive conflicting instructions and so much more problems.
 
 ---
 
 ## 3. Control Directives
 
-Below are **non-negotiable** directives constituting the CIA-9 Governance Integrity
-mandate.
+Below are **non-negotiable** directives constituting the CIA-9 Governance Integrity mandate.
 
-1. **CIA-9.1 Single Source of Truth for Concepts** <TODO>
+1. **CIA-9.1 No Conflicting Standards** <TODO>
+
+2. **CIA-9.2 Single Source of Truth for Concepts** <TODO>
    - define once, refer elsewhere
 
-2. **CIA-9.2 No Conflicting Standards** <TODO>
-
 3. **CIA-9.3 Progressive Disclosure** <TODO>
-
----
-
-## 4. Compliance & Enforcement
-
----
-
-## 5. Practical Application
-
-### 5.1 Reference by canonical code
-
-- Each control declares its `code:` in frontmatter (`CIA-7`, `CIA-8`, `CIA-9`,
-  `homomorphism`). The set of these frontmatter codes **is** the registry: a code resolves
-  to the file whose frontmatter declares it. There is no separate index to maintain.
-- Cite the code: `CIA-7.1`, `CIA-8`, `homomorphism`. A sub-code (`CIA-7.1`)
-  resolves to its control's home (`CIA-7`).
-
----
-
-## 6. References & Changelog
+   - structure instructions such that they are loaded exactly when they're needed. not before (causing context dilution and performance degradations), not after (defeats the whole purpose).
