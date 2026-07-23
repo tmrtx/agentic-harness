@@ -7,8 +7,9 @@ repositories. See `README.md` for propagation, onboarding, and pinning details.
 ## Staleness prevention
 
 When working on any task here, spawn one or more Opus subagents to research
-current best practices for the relevant topic/s from the Anthropic
-documentation, ensuring the repository remains at the methodology frontier.
+current best practices for the relevant topic/s from the Anthropic documentation
+and wait the findings before proceeding, ensuring the repository remains at the
+methodology frontier.
 
 ## Invariants
 
