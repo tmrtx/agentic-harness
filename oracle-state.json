@@ -19,5 +19,26 @@
     "since": "2026-07-25",
     "subject": "every commit's shape: the [ORACLE] section and the Oracle trailer",
     "mechanism": "plugins/harness/hooks/commit-shape-gate.sh via PostToolUse on Bash; tested by tests/commit-shape-gate-test.sh"
+  },
+  "ORC-4": {
+    "oracle-class": "runtime",
+    "ground-truth": "specified",
+    "since": "2026-07-25",
+    "subject": "the oracle-record checker's behavior",
+    "mechanism": "tests/oracle-record-check-test.sh"
+  },
+  "ORC-5": {
+    "oracle-class": "static",
+    "ground-truth": "specified",
+    "since": "2026-07-25",
+    "subject": "an eval run's oracle-recording artifacts: the [ORACLE] section, the trailer, the ledger's append-only invariant, and whether a cited ORC code resolves",
+    "mechanism": "plugins/harness/skills/oracle-ladder/evals/check_record.py; tested by tests/oracle-record-check-test.sh"
+  },
+  "ORC-6": {
+    "oracle-class": "experimental",
+    "ground-truth": "derived",
+    "since": "2026-07-25",
+    "subject": "whether the oracle-ladder skill changes how an agent classifies and records",
+    "mechanism": "plugins/harness/skills/oracle-ladder/evals/evals.json run as with/without pairs in fresh sessions, code-graded on artifacts and blind-judged on argument"
   }
 }

@@ -1,0 +1,23 @@
+[
+  {"query": "im about to commit a change to CLAUDE.md that adds a rule about never using bare except in python. what do i put in the commit trailer for it", "should_trigger": true},
+  {"query": "we keep re-arguing about whether the 'no emoji in commit messages' rule is actually being followed. every few weeks it comes back up. i want to stop having the argument. what should i actually do here", "should_trigger": true},
+  {"query": "adding a PostToolUse hook that warns when someone edits anything under vendor/. before i write it — where does this sit and how do i record it", "should_trigger": true},
+  {"query": "i wrote a rubric for judging whether our agent's PR descriptions are any good. five criteria, 1-5 each, a judge model scores them. how do i register that as a real check and what class is it", "should_trigger": true},
+  {"query": "can you review this diff before i push? it touches three skills under plugins/harness/skills/ and adds a hook. mainly i want to know whether the oracle recording is right", "should_trigger": true},
+  {"query": "how should i decide between writing this rule into CLAUDE.md vs enforcing it with a deny rule in settings.json? the rule is 'never run terraform apply without running plan first'", "should_trigger": true},
+  {"query": "the specification skill now demands that specs list the alternatives they rejected. edit's done, committing now, i need the [ORACLE] block for the body", "should_trigger": true},
+  {"query": "'the agent should ask before deleting more than 5 files' — is that something i can actually verify, or am i kidding myself and it's just a vibe", "should_trigger": true},
+  {"query": "i want to be able to say the new implementation-loop prompt makes claude write better tests than the old one did. what do i need to set up before that claim actually holds", "should_trigger": true},
+  {"query": "quick one: a CI job that fails the build when any SKILL.md goes over 500 lines. classify it for me", "should_trigger": true},
+
+  {"query": "commit-shape-gate.sh is exiting 2 when i'm pretty sure it should exit 0 — the session keeps getting blocked on commits that look fine to me. can you debug it", "should_trigger": false},
+  {"query": "write a pytest for the token bucket rate limiter in src/limits.py, make sure you cover the refill edge case where elapsed time is exactly the window", "should_trigger": false},
+  {"query": "what's the git incantation to see which commits touched oracles.jsonl in the last week, with the author and a one-line summary", "should_trigger": false},
+  {"query": "our eval suite for the summarizer is flaky — 3 of 40 cases fail intermittently and it's different cases each run. help me track down where the nondeterminism is coming from", "should_trigger": false},
+  {"query": "add a version field to plugins/harness/.claude-plugin/plugin.json, i want consumers to stop picking up every push automatically", "should_trigger": false},
+  {"query": "explain what a PostToolUse hook can and can't do in claude code — specifically can it modify the tool result before the model sees it, or only append to it", "should_trigger": false},
+  {"query": "the section of our README about pinning marketplace refs is really passive-voice and hard to follow. rewrite it so it's direct", "should_trigger": false},
+  {"query": "i need a bash script that walks every SKILL.md under plugins/ and prints the path of any that's missing a description field in the frontmatter. handle the case where there's no frontmatter at all", "should_trigger": false},
+  {"query": "the reviewer subagent keeps timing out on large diffs — anything over about 2k lines and it just dies. can we chunk the input or is there a better fix", "should_trigger": false},
+  {"query": "what does 'ground truth' actually mean in ML? trying to explain it to a junior on my team and i keep making it sound circular", "should_trigger": false}
+]

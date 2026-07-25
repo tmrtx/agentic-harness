@@ -1,0 +1,23 @@
+{
+  "ORC-1": {
+    "oracle-class": "principal:tacit",
+    "ground-truth": "principal",
+    "since": "2026-07-25",
+    "subject": "instruction-change acceptability and any verdict without a higher-rung oracle",
+    "mechanism": "principal review at the PR checkpoint; spec consensus with exported decisions where one exists"
+  },
+  "ORC-2": {
+    "oracle-class": "runtime",
+    "ground-truth": "specified",
+    "since": "2026-07-25",
+    "subject": "the commit-shape gate's behavior",
+    "mechanism": "tests/commit-shape-gate-test.sh"
+  },
+  "ORC-3": {
+    "oracle-class": "static",
+    "ground-truth": "specified",
+    "since": "2026-07-25",
+    "subject": "every commit's shape: the [ORACLE] section and the Oracle trailer",
+    "mechanism": "plugins/harness/hooks/commit-shape-gate.sh via PostToolUse on Bash; tested by tests/commit-shape-gate-test.sh"
+  }
+}

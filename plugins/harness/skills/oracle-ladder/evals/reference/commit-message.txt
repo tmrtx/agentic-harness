@@ -1,0 +1,26 @@
+fix[skills][specification]: require every spec to record its rejected alternatives
+
+[PROBLEM]
+A specification names the option it chose and stays silent about the options
+it refused. A reader meets the winner alone, so the rejected options come back
+as proposals the next time anyone reads the spec.
+
+[ROOT-CAUSE]
+The skill asked for a decision, not for the decision's frontier. Nothing in the
+text made the losing options part of the artifact, so writers dropped them as
+scaffolding once the choice was made.
+
+[CHANGE]
+The skill now requires each spec to list the alternatives it rejected and the
+reason each lost. Recording the reason rather than the bare list is what stops
+re-litigation: a name alone invites the reader to re-derive why it lost.
+
+[ORACLE]
+Class: principal - questions 0 through 4 all answer no. No artifact today
+decides whether instruction wording is fit, so the first match is rung 5.
+Ground truth: principal - the standard for fit instruction text is held by the
+principal and is not yet written down as a rubric.
+Mechanism: principal review at the pull-request checkpoint.
+Oracle: ORC-1.
+
+Oracle: [principal:tacit|principal]

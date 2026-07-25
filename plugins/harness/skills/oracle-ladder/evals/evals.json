@@ -1,0 +1,137 @@
+{
+  "skill_name": "oracle-ladder",
+  "notes": "Each prompt runs in an identical sandbox copy of this repository with plugins/harness/skills/oracle-ladder/ removed, so the only difference between configurations is whether the ladder is in context. The sandbox keeps oracle-state.json, oracles.jsonl, and the commit-protocol skill, which means the baseline can see the vocabulary and the recording obligation. What the ladder has to add on top of that is classification discipline, justification depth, and complete records.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "record-instruction-change",
+      "tests": "Does an instruction-file edit get a complete oracle record: correct rung, [ORACLE] section, trailer, ledger line, state entry?",
+      "prompt": "i just reworded plugins/harness/skills/specification/SKILL.md so every spec has to list the alternatives that were rejected and why. the edit is done, working tree is dirty. commit it the way this repo wants commits done.",
+      "expected_output": "A commit whose body carries an [ORACLE] section (Class / Ground truth / Mechanism / Oracle lines) and whose trailer is Oracle: [principal:...|principal] \u2014 the fitness of instruction wording is a human preference with no higher-rung oracle available today. A line appended to oracles.jsonl citing ORC-1. No invented higher rung.",
+      "files": [],
+      "grader": {
+        "mode": "commit",
+        "expect_class": "principal",
+        "expect_ground_truth": "principal"
+      },
+      "expectations": [
+        "[code] A commit was made",
+        "[code] Commit body carries an [ORACLE] section header on its own line",
+        "[code] Commit carries a well-formed Oracle: [<class>|<ground-truth>] trailer",
+        "[code] Trailer oracle-class is one of the six rungs",
+        "[code] Trailer ground-truth is one of the four sources",
+        "[code] Oracle class is the rung this change actually admits",
+        "[code] Ground truth is the source this change actually has",
+        "[code] [ORACLE] section has all four labeled lines",
+        "[code] [ORACLE] section cites an ORC code that exists in oracle-state.json",
+        "[code] Oracle recording did not displace the commit protocol's other body sections",
+        "[code] A ledger line was appended for this change",
+        "[code] The ledger stayed append-only",
+        "[code] Every ledger line is valid JSON",
+        "[code] The new ledger line carries every required field",
+        "[code] The new ledger line's class and ground-truth come from the ladder's vocabulary",
+        "[code] The new ledger line records the right class",
+        "[code] The new ledger line cites an oracle code that exists in oracle-state.json",
+        "[code] Every oracle-state.json entry carries class, ground-truth, since, subject, mechanism",
+        "[judge] Argues the placement down the ladder's ordered questions, ruling out the lower rungs, rather than asserting a rung",
+        "[judge] Names a mechanism that exists in this repository rather than inventing a checkpoint",
+        "[judge] Claims no higher rung than today's artifacts support - no test or harness is invented for instruction wording"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "static-not-runtime-trap",
+      "tests": "First-match discipline: does machinery (a CI job that executes) drag the classification off static onto runtime?",
+      "prompt": "adding a github actions job that greps every SKILL.md for a description: line in the frontmatter and fails the build when one is missing. where does that sit on the ladder? my instinct is runtime since it only fires when CI runs, but i'm not sure. give me the classification plus what goes in the commit.",
+      "expected_output": "static | specified. The verdict is a total function of the artifact at rest and consults no execution trace of the system under verification; the checker's own execution is irrelevant. The runtime instinct is named and rejected explicitly.",
+      "files": [],
+      "grader": {
+        "mode": "answer",
+        "expect_class": null,
+        "expect_ground_truth": null
+      },
+      "expectations": [
+        "[code] The answer hands over a well-formed Oracle: [<class>|<ground-truth>] trailer",
+        "[code] The trailer it hands over uses a real rung and a real ground-truth source",
+        "[judge] Places the CI check itself on the static rung",
+        "[judge] Names the user's runtime instinct and rejects it explicitly instead of silently classifying around it",
+        "[judge] Grounds the rejection in class-not-machinery: the verdict is a total function of the artifact at rest, and the checker's own execution is irrelevant",
+        "[judge] Hands over the [ORACLE] section content the user asked for - class, ground truth, mechanism, oracle - not just the rung name",
+        "[judge] Whatever trailer it supplies is consistent with the classification it just argued for"
+      ],
+      "grader_note": "Either trailer can be right here: the CI check is static, but the commit that installs a tested checker may itself be verified at runtime by that checker's suite. Grade internal consistency, not a fixed string."
+    },
+    {
+      "id": 2,
+      "name": "choose-enforcement-machinery",
+      "tests": "Does the ladder produce a priced enforcement design \u2014 route coverage, exit-code channel, kill switch, blast radius \u2014 rather than a generic pre-commit hook?",
+      "prompt": "agents in this repo keep committing without running tests/commit-shape-gate-test.sh first. commit-protocol says to but it gets skipped maybe 1 session in 3. i want that to stop. what's the right way to enforce it and what do i have to build?",
+      "expected_output": "A rung chosen and justified against the machinery table, with the gate economics priced: every route to the action covered (CLI form, MCP tool, plugin-scoped MCP name), the exit code chosen deliberately (2 blocks and the model reads stderr; other codes notify the human and proceed), doubt resolving open unless the violation is irreversible, an env-var kill switch, self-recorded events under CLAUDE_PLUGIN_DATA, and placement argued from blast radius.",
+      "files": [],
+      "grader": null,
+      "expectations": [
+        "[judge] Names a rung for the enforcement and says why a higher rung is not available",
+        "[judge] Covers every route to the action rather than one spelling of the command",
+        "[judge] States what the gate does on failure in exit-code terms: which code blocks, and who reads the message",
+        "[judge] Prices the asymmetry between a missed violation and a false block rather than treating blocking as free",
+        "[judge] Ships an off-switch so a broken gate can be disabled without disabling the whole plugin",
+        "[judge] Argues where in the session the gate should fire from the cost of failing there",
+        "[judge] Has the gate record its own firing, because a broken gate is indistinguishable from a working one from outside",
+        "[judge] The recommendation is concrete enough to start building from without a follow-up question"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "statistical-vs-experimental",
+      "tests": "Does the answer separate the measurement (rubric over samples) from the causal claim (needs a counterfactual variant)?",
+      "prompt": "i want to find out whether the implementation-loop skill actually gets agents to write the test before the implementation, or whether they just claim they did. plan is to pull 20 session transcripts and have a judge model score each against a rubric. is that a legit oracle, and what rung is it?",
+      "expected_output": "The rubric-scored measurement is statistical \u2014 aggregation over samples, threshold with a nonzero error rate \u2014 and it carries its rubric as justification. The question as asked ('does the skill get agents to') is causal and needs a variant that does not exist yet, which is experimental: with/without pairs in fresh sessions. Both are named and distinguished.",
+      "files": [],
+      "grader": null,
+      "expectations": [
+        "[judge] Classifies the rubric-scored transcript review as statistical",
+        "[judge] Separates the causal question - does the skill cause the behavior - from the measurement, and places that claim on the experimental rung",
+        "[judge] Names the counterfactual an experimental placement needs: with/without arms in fresh sessions",
+        "[judge] Requires the rubric to be written down, since a statistical placement carries its rubric as justification",
+        "[judge] Flags that an agent's own claim inside a transcript is not evidence the behavior occurred"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "intrinsic-still-recorded",
+      "tests": "Is an impossibility still recorded, or does 'nothing to test' get read as 'nothing to record'?",
+      "prompt": "i took WebSearch off the reviewer subagent's tools list in plugins/harness/agents/reviewer.md so it physically can't pull in non-anthropic sources anymore. there's nothing to test here, the tool isn't there. do i need to record anything or can i just commit it?",
+      "expected_output": "Yes, record it: intrinsic | specified. An impossibility is still an expectation, and unrecorded it is invisible to the ratchet and silently un-owned. Rungs 0-2 justify themselves, so the justification stays short. Ledger line and state entry produced.",
+      "files": [],
+      "grader": {
+        "mode": "commit",
+        "expect_class": "intrinsic",
+        "expect_ground_truth": "specified"
+      },
+      "expectations": [
+        "[code] A commit was made",
+        "[code] Commit body carries an [ORACLE] section header on its own line",
+        "[code] Commit carries a well-formed Oracle: [<class>|<ground-truth>] trailer",
+        "[code] Trailer oracle-class is one of the six rungs",
+        "[code] Trailer ground-truth is one of the four sources",
+        "[code] Oracle class is the rung this change actually admits",
+        "[code] Ground truth is the source this change actually has",
+        "[code] [ORACLE] section has all four labeled lines",
+        "[code] [ORACLE] section cites an ORC code that exists in oracle-state.json",
+        "[code] Oracle recording did not displace the commit protocol's other body sections",
+        "[code] A ledger line was appended for this change",
+        "[code] The ledger stayed append-only",
+        "[code] Every ledger line is valid JSON",
+        "[code] The new ledger line carries every required field",
+        "[code] The new ledger line's class and ground-truth come from the ladder's vocabulary",
+        "[code] The new ledger line records the right class",
+        "[code] The new ledger line cites an oracle code that exists in oracle-state.json",
+        "[code] Every oracle-state.json entry carries class, ground-truth, since, subject, mechanism",
+        "[judge] Answers the question asked: yes, the change is still recorded",
+        "[judge] Places it on the intrinsic rung because no violating artifact can be constructed",
+        "[judge] Gives the reason an impossibility is still recorded - unrecorded, it is invisible to the ratchet and un-owned",
+        "[judge] Keeps the justification short rather than manufacturing depth a rung-0 placement does not need"
+      ]
+    }
+  ]
+}
