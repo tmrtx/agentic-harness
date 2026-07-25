@@ -15,6 +15,8 @@ Its message must give teleological, causal, and practical understanding of the c
    1. [PROBLEM] - Problem Statement: Formulate the problem that this commit will address (content after `[PROBLEM]` line).
    2. [ROOT-CAUSE] - Root-Cause Analysis: Elaborate the causal mechanics that created this problem (content after `[ROOT-CAUSE]` line).
    3. [CHANGE] - The Change: Describe your approach and justify this approach over alternatives considered (content after `[CHANGE]` line).
+   4. [VERIFICATION] - The Oracle: State the oracle mechanism that verifies this commit and the justification for its placement (content after `[VERIFICATION]` line).
+4. **Oracle trailer:** Each commit carries an `Oracle: [<oracle-class>|<ground-truth>]` git trailer. The dimensions come from the `oracle-ladder` skill. The ledger (`oracles.jsonl`) condenses trailer, verification, and target per change.
 
 Writing instructions:
 - Adhere to Zinsser's philosophy of writing well, follow BLUF (bottom line up front), Minto Pyramid, Given-New Principles for writing the commit message.
