@@ -21,10 +21,12 @@ The questions run in order. The first match places the oracle. The question
 is the rung's definition.
 
 0. `intrinsic` — Can a violating artifact even be constructed? No → intrinsic.
-1. `static` — Is the verdict a total function of the artifact, with no
-   execution and no threshold? Yes → static.
+1. `static` — Is the verdict a total function of the artifact at rest —
+   deterministic, recomputable at any time, consulting no execution trace
+   of the system under verification? Yes → static. The checker's own
+   execution is irrelevant; machinery never determines class.
 2. `runtime` — Is the verdict a decidable predicate over a single execution
-   or trace? Yes → runtime.
+   or trace of the system under verification? Yes → runtime.
 3. `statistical` — Does the verdict need aggregation over samples, or a
    threshold with a nonzero error rate? Yes → statistical.
 4. `experimental` — Does the verdict require a counterfactual variant that
@@ -32,6 +34,10 @@ is the rung's definition.
 5. `principal` — Is the ground truth a human preference? Yes → principal.
    The tag `:tacit` marks a preference that cannot yet be articulated. The
    tag `:preference` marks one that could be, but has not been formalized.
+
+Class is a property of the verdict. It is not a property of the machinery
+that computes it, nor of the point in the pipeline where it fires. The
+machinery table maps class to mechanism; the mapping is not invertible.
 
 A placement has two dimensions. Collapsing them misfiles the common case of
 a human hand-checking a written rule.
@@ -57,8 +63,8 @@ without being written anywhere. `principal`: held by the principal.
   impossibility is still an expectation. Unrecorded, it is invisible to the
   ratchet and silently un-owned.
 - A commit carries the oracle that verifies it. The trailer holds the two
-  dimensions. The `[VERIFICATION]` section holds the mechanism and the
-  justification. The ledger condenses trailer, verification, and target.
+  dimensions. The `[ORACLE]` section holds the mechanism and the
+  justification. The ledger condenses trailer, oracle section, and target.
   Corpus state predating this rule is grandfathered until touched.
 
 ## Recording
@@ -68,16 +74,30 @@ constrained dimensions:
 
     Oracle: [<oracle-class>|<ground-truth>]
 
-The commit body holds a `[VERIFICATION]` section. It states the oracle
-mechanism and the justification, graduated by depth.
+The commit body holds an `[ORACLE]` section: one labeled line per
+element, so the classification is checkable against the questions.
 
-`oracles.jsonl` at the repository root is the condensed record. One line
-combines a change's trailer dimensions, its verification section, and its
-target. Constrained fields come first; free text comes last.
+    [ORACLE]
+    Class: <rung> - <the first-match reasoning>.
+    Ground truth: <source> - <where the standard lives>.
+    Mechanism: <the check, rubric, comparison, or checkpoint>.
+    Oracle: <ORC code from the state>.
 
-    {"code":"ORC-<n>","since":"<date>","oracle-class":"<rung>",
-     "ground-truth":"<source>","target":"<what was changed>",
-     "oracle":"<the mechanism in force>","justification":"<graduated by depth>"}
+Two artifacts at the repository root persist this.
+
+`oracle-state.json` is the current oracle inventory: one coded entry
+(`ORC-<n>`) per oracle in force, holding its dimensions, mechanism, and
+subject. A climb edits the entry.
+
+`oracles.jsonl` is the append-only ledger: one line per governed change,
+condensing the trailer dimensions, the `[ORACLE]` section, and the
+target. It cites the verifying oracle by code. Ledger snapshots stay
+immutable when the state later climbs. Constrained fields come first;
+free text comes last.
+
+    {"since":"<date>","oracle":"ORC-<n>","oracle-class":"<rung>",
+     "ground-truth":"<source>","target":"<what changed>",
+     "justification":"<graduated by depth>"}
 
 ## Operationalizing in Claude Code
 
