@@ -113,12 +113,17 @@ def resolve_credentials():
         return {"x-api-key": key}
     token = os.environ.get("ANTHROPIC_AUTH_TOKEN")
     if not token and shutil.which("ant"):
-        r = subprocess.run(
-            ["ant", "auth", "print-credentials", "--access-token"],
-            capture_output=True, text=True, timeout=15,
-        )
-        if r.returncode == 0 and r.stdout.strip():
-            token = r.stdout.strip()
+        # A broken or hanging helper is a missing credential, not a crash:
+        # the documented degradation is the `unavailable` line at exit 2.
+        try:
+            r = subprocess.run(
+                ["ant", "auth", "print-credentials", "--access-token"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if r.returncode == 0 and r.stdout.strip():
+                token = r.stdout.strip()
+        except (subprocess.TimeoutExpired, OSError):
+            pass
     if token:
         headers = {"authorization": "Bearer " + token}
         if token.startswith("sk-ant-oat"):

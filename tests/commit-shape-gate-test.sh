@@ -25,8 +25,7 @@ export PYTHONPYCACHEPREFIX="$TMP/pyc"
 
 # 1. non-commit command: silent
 out="$(payload 'ls -la' "$TMP" | "$GATE")"
-check "non-commit command is silent" "" "$out"
-[ -z "$out" ] || fails=$((fails+1))
+[ -z "$out" ] && echo "PASS: non-commit command is silent" || { echo "FAIL: non-commit command produced output: $out"; fails=$((fails+1)); }
 
 # 2. grandfathered HEAD (old commit): silent
 GIT_COMMITTER_DATE='2020-01-01T00:00:00' GIT_AUTHOR_DATE='2020-01-01T00:00:00' gcommit "old commit, no shape"
