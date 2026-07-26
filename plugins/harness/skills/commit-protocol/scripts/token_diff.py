@@ -79,9 +79,13 @@ def derive_paths(base, target):
 
     --no-renames keeps both sides of a rename in the set; folded to the
     destination alone, moved content would read as a pure addition.
+    core.quotePath off keeps non-ASCII paths literal; quoted, they no
+    longer match the pattern and would silently drop from the figure.
     """
-    args = (["git", "diff", "--name-only", "--no-renames", base, target] if target
-            else ["git", "diff", "--name-only", "--no-renames", "--cached", base])
+    common = ["git", "-c", "core.quotePath=false", "diff", "--name-only",
+              "--no-renames"]
+    args = (common + [base, target] if target
+            else common + ["--cached", base])
     r = subprocess.run(args, capture_output=True, text=True)
     if r.returncode != 0:
         raise Unavailable("git diff failed: %s" % r.stderr.strip())

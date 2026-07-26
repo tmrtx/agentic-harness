@@ -119,6 +119,15 @@ check_rc "empty file exits 0" 0 "$rc"
 g rm -q --cached skills/a/empty.md
 rm -f "$R/skills/a/empty.md"
 
+# 2c. a non-ASCII steering path stays in the derived set: git's default
+#     path-quoting must not hide it from the pattern (and the figure)
+printf 'p q' > "$R/skills/a/café.md"
+g add "skills/a/café.md"
+out="$(cd "$R" && python3 "$SCRIPT" 2>/dev/null)"
+check_line "non-ascii path is measured" "Token diff: +4/-4 (net +0, claude-opus-5)" "$out"
+g rm -q --cached "skills/a/café.md"
+rm -f "$R/skills/a/café.md"
+
 g commit -qm change
 
 # 3. an unchanged file contributes zero; --model is named in the line AND
