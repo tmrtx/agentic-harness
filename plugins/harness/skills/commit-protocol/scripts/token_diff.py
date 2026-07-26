@@ -75,9 +75,13 @@ def git_blob(spec):
 
 
 def derive_paths(base, target):
-    """Steering files changed between the comparison sides, repo-relative."""
-    args = (["git", "diff", "--name-only", base, target] if target
-            else ["git", "diff", "--name-only", "--cached", base])
+    """Steering files changed between the comparison sides, repo-relative.
+
+    --no-renames keeps both sides of a rename in the set; folded to the
+    destination alone, moved content would read as a pure addition.
+    """
+    args = (["git", "diff", "--name-only", "--no-renames", base, target] if target
+            else ["git", "diff", "--name-only", "--no-renames", "--cached", base])
     r = subprocess.run(args, capture_output=True, text=True)
     if r.returncode != 0:
         raise Unavailable("git diff failed: %s" % r.stderr.strip())

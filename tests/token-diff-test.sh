@@ -114,6 +114,13 @@ check_line "unchanged file is zero, model override named" "Token diff: +0/-0 (ne
 out="$(cd "$R" && python3 "$SCRIPT" --base HEAD^ --target HEAD 2>/dev/null)"
 check_line "historical derivation matches the staged figure" "Token diff: +3/-4 (net -1, claude-opus-5)" "$out"
 
+# 4b. a staged rename counts both sides: the moved content leaves one path
+#     and arrives at another, so the recurring cost nets to zero
+g mv skills/a/f1.md skills/a/f1moved.md
+out="$(cd "$R" && python3 "$SCRIPT" 2>/dev/null)"
+check_line "rename counts source and destination" "Token diff: +5/-5 (net +0, claude-opus-5)" "$out"
+g reset -q --hard HEAD
+
 # 5. a named path absent on both sides aborts: a wrong list must not read
 #    as a measured zero
 out="$(cd "$R" && python3 "$SCRIPT" skills/a/nope.md 2>/dev/null)"; rc=$?
