@@ -234,11 +234,16 @@ def grade_c5(repo: Path):
                    "evidence": f"print-> exit {rc_p} ({out_p.strip()[:80]}); "
                                f"kebab-> exit {rc_k} ({out_k.strip()[:80]}); "
                                f"clean-> exit {rc_ok} ({out_ok.strip()[:80]})"})
-    text = hook.read_text()
-    dead = "lib/config" in text
+    # Only live code counts. C5.3 rewards saying the check had been dead, and
+    # the natural way to say it in a shell script is a comment naming the old
+    # `lib/config/*.yml` glob. Matching the bare string would fail a run for
+    # documenting the very fix the key asks for, so comments are stripped first.
+    live = "\n".join(l for l in hook.read_text().splitlines()
+                     if not l.lstrip().startswith("#"))
+    dead = "lib/config" in live
     checks.append({"id": "C5.2", "passed": not dead,
-                   "evidence": "hook still globs lib/config/ (dead since the May rename)"
-                   if dead else "no lib/config reference in the shipped hook"})
+                   "evidence": "hook still globs lib/config/ in live code (dead since the May rename)"
+                   if dead else "no live lib/config glob in the shipped hook (comments ignored)"})
     return checks
 
 
