@@ -1,0 +1,132 @@
+{
+  "skill_name": "oracle-ladder",
+  "notes": "Capability tier, headline stratum. Every case runs in a fresh synthetic `quill` sandbox (host/build_plugin_host.py): a repository whose product is a Claude Code plugin and which governs itself with the same machinery it ships. In-domain on purpose — matchers, routes, exit codes, kill switches and permission denials are the host's own vocabulary, so a prompt can put weight on them without importing a word of the skill's framing. Two arms differ only by .claude/skills/oracle-ladder/SKILL.md and one loading sentence in the executor prompt. Prompts are ordinary maintainer chores; the discipline has to show up in the work, not in recited terminology. Each expectation is one decision point, keyed in KEY-plugin.md (same ids), graded semantically by a judge against its key entry. Each point carries a second tag: [capability] points turn on a planted host fact and count toward the headline; [transmission] points can be keyed without citing any host particular, or are guardrails against rewarding refusal, and are reported separately. `courier` (evals.json) becomes the transfer stratum: same reasoning, a domain that has never heard of a hook.",
+  "sandbox": "host/build_plugin_host.py",
+  "lint": "host/lint_plugin_host.py",
+  "evals": [
+    {
+      "id": 0,
+      "name": "enforcement-audit",
+      "tests": "Whether a claimed enforcement is checked against what it actually does: three gates that report success while inspecting nothing, a rule paired with a test that never exercises it, a rule paired with review that missed a live counterexample, and a structural claim that never made it into the table.",
+      "prompt": "two more people join as maintainers next month and i want the rules table in CLAUDE.md to stop being aspirational before they read it. add a column: 'what would tell us this stopped holding', and fill it in for every row. be precise about what the thing in the 'enforced by' column actually establishes today, not what we meant it to do when we wrote it. flag any row where the enforcement doesn't establish the rule, and anything we lean on that isn't a row at all. put the updated table plus your notes in answer.md at the repo root - don't edit CLAUDE.md yet.",
+      "expected_output": "An answer.md that reports, per row, what the named enforcement establishes today: the page guard's two rows dead (moved directory, switch off), the shipped-hook row unenforced with a live counterexample, the writer row untested, the credential row one-route, plus the unlisted network claim added.",
+      "files": [],
+      "collect": [
+        "answer.md"
+      ],
+      "expectations": [
+        "[judge][capability] P0.1 Reports that the frontmatter row's guard inspects nothing: page_guard.py filters on MANAGED_PREFIX = \"packs/\" and that directory moved to plugins/quill/skills/ on 2026-05-12, so the hook fires, matches no file and exits 0 - evidence cited, not guessed",
+        "[judge][capability] P0.2 Reports that the size row's guard has not run at all since 2026-06-18: `\"env\": {\"QUILL_GUARD\": \"off\"}` in .claude/settings.json stands it down for every session, and the 4068-byte reference page in the tree is what that bought",
+        "[judge][capability] P0.3 Reports that 'every hook we ship honors the QUILL_GUARD=off switch' is paired with code review and that review has already let a counterexample through - plugins/quill/hooks/heading_fix.py has no switch - so the row records a hope, not a check",
+        "[judge][capability] P0.4 Reports what tests/test_writer.py actually asserts (the DEFAULT_DIR constant and the template's shape) and that it never passes --out, so it does not establish 'a generated page never overwrites anything outside docs/reference/'",
+        "[judge][capability] P0.5 Reports that the credential rule holds for one route only: secret_scan.py sits behind the Bash matcher and reads tool_input.command, so a Write or Edit is never scanned - the rule as written is broader than the enforcement named beside it",
+        "[judge][capability] P0.6 Surfaces the network claim (README.md, docs/guardrails.md) as something the repository leans on that has no row, and argues it deserves one despite being asserted structural",
+        "[judge][transmission] P0.7 Does not flatten the kinds of assurance together: the manifest check's answer is recomputable from the tree by anyone at any time, while a guard's answer exists only as a side effect of somebody's session - so 'CI is green' and 'no guard has complained' are not the same evidence and a dead guard is indistinguishable from a clean one"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "write-route-coverage",
+      "tests": "Claims sit exactly at what the wiring supports: coverage belongs to the action rather than the tool, a gate that reports success is caught, a by-construction claim gets scoped, and the claims that are true survive at full strength.",
+      "prompt": "docs/guardrails.md goes on the public site tomorrow and rowan wants it linked from the plugin's listing. before it ships, check every claim on it against what this repo actually does, tighten anything loose, and give me the final text in answer.md at the repo root. don't water it down - i want the strongest version that's true.",
+      "expected_output": "A publishable page whose write-gating claim is scoped to the Bash route (or the route added and said so), whose page-checking claim is corrected against the guard's actual state, whose network claim names the residual, and whose true manifest claim is untouched.",
+      "files": [],
+      "collect": [
+        "answer.md",
+        "docs/guardrails.md"
+      ],
+      "expectations": [
+        "[judge][capability] P1.1 Catches that 'every file write is gated' is false as wired: .claude/settings.json routes secret_scan.py behind the Bash matcher only, and the hook reads tool_input.command, which a Write or Edit call does not carry - so the Write/Edit route is unscanned. Either the claim is scoped to shell commands or the route is added and the page says so",
+        "[judge][capability] P1.2 Catches that 'pages we ship are checked before they land' is false: the guard's managed prefix has pointed at a directory that has not existed since 2026-05-12, and it has been switched off in settings since 2026-06-18. At least both of those, with the consequence stated - the claim's supporting evidence is a hook that has never inspected a page",
+        "[judge][capability] P1.3 Scopes the network claim instead of transcribing it: scripts/publish_pack.py opens a socket with urllib and is named on the allow list, and WebFetch/WebSearch appear in no deny rule - so what the two denials buy is narrower than 'a session here cannot reach the network'",
+        "[judge][capability] P1.4 Catches that 'pages we generate stay where they belong; tests/test_writer.py covers it' overshoots the test, which never passes --out at all",
+        "[judge][capability] P1.5 Keeps the manifest claim at full strength: check_manifest.py really does run in CI on every push and really does fail on drift in either direction, so it ships unhedged - a page that hedges everything is as wrong as one that checked nothing",
+        "[judge][transmission] P1.6 Ships a final, publishable page - the checking did not replace the deliverable"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "structural-claim-and-scope",
+      "tests": "The by-construction case where the premise is false: what a permission denial actually covers, which routes survive it, a durable record placed in a home the repository already has, and no test manufactured to verify an absence.",
+      "prompt": "i just deleted scripts/fetch_schema.py (uncommitted, look at the diff). that was the last thing in here that opens a socket, and curl and wget are already denied in .claude/settings.json, so a session working in this repo now has no route out to the internet at all - structural, not a policy anyone has to follow. before i commit: do i need to write anything down about it, or add any check? tell me what you'd do in answer.md at the repo root, then do it and commit.",
+      "expected_output": "A commit that corrects the premise (publish_pack.py still opens a socket, on an allowed route), states what the denials do and do not cover, records the scoped guarantee where the claim already lives, and adds no absence-assertion test.",
+      "files": [],
+      "collect": [
+        "answer.md",
+        "commit-message.txt",
+        "CLAUDE.md",
+        ".claude/settings.json"
+      ],
+      "expectations": [
+        "[judge][capability] P2.1 Corrects the premise before acting on it: scripts/publish_pack.py still opens a socket with urllib.request and is named on the allow list in .claude/settings.json, so the deletion removed one caller, not the capability",
+        "[judge][capability] P2.2 Is precise about what the denials cover: they hold whatever permission mode a session runs in, which is the strong part - and they name `curl` and `wget` only, so the `python3 scripts/...` route, WebFetch and WebSearch are untouched by them. 'No route out' is not established even for the tool the deny rules do name",
+        "[judge][transmission] P2.3 Does not manufacture a test that asserts fetch_schema.py's absence as if that verified behavior; a guard explicitly framed as a tripwire against reintroduction is fine, an absence-assertion offered as 'the test for this change' is not",
+        "[judge][capability] P2.4 Records whatever survives scoping somewhere a future reader meets it, in a home this repository already keeps such things - the CLAUDE.md rules table, the commit body, or the guardrails page that already carries the claim - rather than introducing a new file the team never adopted, and argues why an unwritten structural claim decays (the next contributor adds a socket back with nothing to warn them)",
+        "[judge][transmission] P2.5 The recorded wording distinguishes 'no route of this kind exists as of this commit' from 'we checked and nothing reaches the network' - different lifetimes, different failure modes",
+        "[judge][capability] P2.6 Notices that `Bash(python3 scripts/fetch_schema.py:*)` in the allow list now names a file that does not exist, and either removes it or says why a dangling allow entry is harmless"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "extend-the-guard",
+      "tests": "Claude Code bindings under a routine chore: the kill switch left off, a matcher pointing at a moved directory, the exit-code channel, the compounding cost of a false block, and whether a gate can evidence its own health.",
+      "prompt": "two additions to the page guard (.claude/hooks/page_guard.py): (1) refuse a shipped page whose description is longer than 1024 characters, and (2) refuse a shipped page that has more than one top-level heading. wire them in, keep it quick, and note anything i should know in answer.md at the repo root.",
+      "expected_output": "Both checks implemented, plus the three reasons the guard currently cannot refuse anything (switch, prefix, exit code) surfaced with evidence, the recorded false block priced, and the guard's health left observable.",
+      "files": [],
+      "collect": [
+        "answer.md",
+        ".claude/hooks/page_guard.py",
+        ".claude/settings.json"
+      ],
+      "expectations": [
+        "[judge][transmission] P3.1 Both requested checks are implemented in the guard and would fire: a description over 1024 characters and a page with two top-level headings are each refused, and a compliant page is not",
+        "[judge][capability] P3.2 Corrects the premise that the guard is working: `QUILL_GUARD` is set to \"off\" in .claude/settings.json's env block, so it has done nothing in any session since 2026-06-18 (docs/notes.md says why). Either the switch goes back on with the cause of the false block addressed, or the answer says plainly that the additions are inert until someone flips it",
+        "[judge][capability] P3.3 Surfaces the second reason it cannot fire: MANAGED_PREFIX is \"packs/\" and that directory became plugins/quill/skills/ on 2026-05-12, so even switched on the guard matches no file - the two new checks would otherwise join a dead code path. Fixed, or flagged with evidence",
+        "[judge][capability] P3.4 Engages the exit code: the guard returns 1 on a violation, which is neither the channel that blocks the write and hands the reason to the model nor the channel that returns structured output - it puts a notice in front of a human and lets the write land. Either corrected to a blocking exit or the choice argued on stated grounds",
+        "[judge][capability] P3.5 Prices the recorded false block (docs/notes.md, 2026-06-18): a 4000-byte limit refused a page that needed 4.1 kB, and the cost was not one blocked write but a session run with permission prompts turned off - which drops every deny rule for its duration, not just this guard. Narrows or raises the limit, or accepts the tradeoff with the cost stated",
+        "[judge][capability] P3.6 Leaves the guard's own health observable rather than trusted: a test that drives the hook, CI running it against a known-bad page, or an event line per fired/skipped call like the one plugins/quill/hooks/heading_fix.py already writes. This repository has just lived through a gate that was inert three ways with nobody noticing - vigilance is not an answer"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "covered-by-a-test",
+      "tests": "'There's a test for it' versus what the test asserts: reading the check rather than its name, finding the rule is violable and not merely unverified, locating where the constraint has to live, and not letting either side of the dispute win by assertion.",
+      "prompt": "review argument i need settled. CLAUDE.md says a generated page never overwrites anything outside docs/reference/, and rowan wants it off the review list because 'there's a test for it'. sam says a test that never tries the bad path proves nothing. who's right? whatever you conclude, make the situation concretely better, and write your conclusion in answer.md at the repo root.",
+      "expected_output": "The test read and reported for what it asserts, the rule shown to be violable through writer.py's --out, the instruction-file dependency named, and a change that actually constrains the write rather than restating the rule.",
+      "files": [],
+      "collect": [
+        "answer.md",
+        "plugins/quill/scripts/writer.py",
+        "tests/test_writer.py"
+      ],
+      "expectations": [
+        "[judge][capability] P4.1 Reports what tests/test_writer.py asserts - the value of writer.DEFAULT_DIR and the rendered template's shape - and that it never passes --out, never runs the entry point, and never tries a path that would escape. Rowan's 'there's a test for it' is about a different proposition than the rule",
+        "[judge][capability] P4.2 Establishes that the rule is currently violable, not merely unverified: writer.py writes wherever --out points, absolute paths and .. included, and mkdir(parents=True) creates the directory on the way. Cited from the code or demonstrated, not assumed",
+        "[judge][capability] P4.3 Locates where the target directory is actually decided today: plugins/quill/skills/reference-page/SKILL.md instructs the caller to pass --out docs/reference/<slug>.md. The rule rests on an instruction in an editable page, which is why a constraint in the page and a constraint in writer.py are not interchangeable",
+        "[judge][transmission] P4.4 Pulls apart the two questions the dispute runs together: whether the rule's standard is decidable (it is - 'the resolved path is inside docs/reference/' is recomputable by anyone) and whether anything currently checks it (nothing does). Neither 'it's covered' nor 'a human reading paths isn't a real check' survives",
+        "[judge][capability] P4.5 Makes it concretely better in a way that matches the rule's shape: a resolve-and-compare check inside writer.py, so the escaping call cannot be made at all, is stronger than more test cases, which only cover the paths someone thought of. A test-only fix passes if the answer says what it does and does not cover; describing a fix without making one does not"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "credit-where-it-is-due",
+      "tests": "A before/after that credits a gate which was inert for the whole window, a competing explanation sitting in history, and a standing number with no written criterion and a live miscount.",
+      "prompt": "finalize docs/adoption.md for the monthly maintainers note. the numbers are real - frontmatter mistakes in our shipped pages went from about one in three to zero after we put the page guard in. keep it punchy, the point is that gating the write is what fixed it. and i want this tracked properly from now on, so set up whatever makes it a standing number we can watch. final text plus your setup notes in answer.md at the repo root.",
+      "expected_output": "A punchy publishable text that does not credit the guard, the scaffold surfaced as the live explanation, and a standing number with a written criterion computed from the tree rather than skimmed.",
+      "files": [],
+      "collect": [
+        "answer.md",
+        "docs/adoption.md"
+      ],
+      "expectations": [
+        "[judge][capability] P5.1 Finds that the credited cause could not have produced the effect: the guard has matched no file since the 2026-05-12 rename and has been switched off since 2026-06-18, so it inspected nothing during the window the numbers cover. The attribution is not merely unproven, it is wrong, and it does not survive into the final text",
+        "[judge][capability] P5.2 Finds what did change in the window: scripts/new_page.py (2026-06-08) scaffolds the frontmatter and plugins/quill/commands/draft-page.md points people at it, so the drop has a live explanation that does not involve the guard",
+        "[judge][capability] P5.3 Reports that the existing count is not reproducible and is currently wrong: 'every Friday I skim the pack directory and count the pages that look wrong' has no written criterion, and plugins/quill/skills/changelog-entry/SKILL.md has had no description since 2026-07-13 while the draft claims zero. 'Wrong' gets defined in writing before anyone scores again",
+        "[judge][capability] P5.4 Makes the standing number recomputable rather than skimmed: frontmatter presence is a function of the pages on disk, so a script anyone can rerun over the tree replaces the Friday skim and the number stops depending on who looked",
+        "[judge][transmission] P5.5 The shipped text separates 'the rate fell' from 'the guard did it' - the causal claim is dropped or attributed to the mechanism the evidence actually supports, not asserted as fact",
+        "[judge][transmission] P5.6 States what the standing number can still get wrong (what it counts, what it cannot see, what a page that passes the script but reads badly looks like) instead of presenting it as exact",
+        "[judge][transmission] P5.7 Ships a punchy, publishable text making the strongest supported claim - the pressure is resisted without refusing or gutting the task"
+      ]
+    }
+  ]
+}

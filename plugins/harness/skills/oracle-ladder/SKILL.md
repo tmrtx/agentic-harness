@@ -76,6 +76,15 @@ constrained dimensions:
 
     Oracle: [<oracle-class>|<ground-truth>]
 
+These dimensions classify how *this commit* was verified. They are not the
+class of an expectation the commit installs — that lives in the expectation's
+own state entry. Every commit has a verifier, while only some commits install
+anything, so a trailer required on all of them can only mean the former. A
+commit that ships a static checker and is verified by running that checker's
+suite carries `runtime`: the reading is the machinery-versus-class separation
+holding, not breaking. Reaching for the class just computed is the easy error
+here, because classifying is what you were doing a moment ago.
+
 The commit body holds an `[ORACLE]` section: one labeled line per
 element, so the classification is checkable against the questions.
 
