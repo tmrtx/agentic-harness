@@ -51,14 +51,14 @@ without being written anywhere. `principal`: held by the principal.
 
 ## Policy
 
-- An expectation sits at the highest rung its verdict admits with today's
-  artifacts. A lower seat is a recorded state, not a failure. The climb is
-  the artifact that changes a question's answer: a written rubric, a built
-  harness, a constraint.
-- Justification grows downward. Rungs 0–2 justify themselves; the oracle is
-  its own case. A statistical placement carries its rubric. An experimental
-  placement carries its comparison design and cost. A principal placement
-  carries the reasons nothing higher is attainable yet.
+- A expectation should aim to sit at the highest rung attainable. The higher the
+  rung, the easier it'll be accepted into the repository. 'principal' having the
+  highest rejection rate.
+- Justification grows superlinearly downward. Rung 0 justifies itself. Each rung
+  needs to justify what makes attaining a higher rung by reframing the problem
+  not possible. A principal placement needs to have a very convincing
+  justification on why even the 'experimental' oracle (eval workflow) wasn't
+  available and has to create burden for the 'principal'.
 - Every placement is recorded. Intrinsic placements are included. An
   impossibility is still an expectation. Unrecorded, it is invisible to the
   ratchet and silently un-owned.
@@ -101,17 +101,16 @@ free text comes last.
 
 ## Operationalizing in Claude Code
 
-The ladder is platform-free. This section is its Claude Code instantiation.
-It expires with that platform's contract.
+The ladder is platform-free. This section is its Claude Code instantiation. It expires with that platform's contract.
 
-| rung | machinery |
-|---|---|
-| intrinsic | permission deny rules; tool removal; PreToolUse deny — the deny holds in every permission mode, including bypass |
-| static | command hooks; plugin validation; CI checks; token-budget lints |
-| runtime | self-recording gates, one event line per fired / denied / errored under `${CLAUDE_PLUGIN_DATA}`; PostToolUse feedback |
-| statistical | prompt hooks with a written rubric; agent hooks when the judge needs repository state; reviewer-agent phases |
-| experimental | eval harness with with/without pairs in fresh sessions |
-| principal | PR review checkpoint; spec consensus with exported decisions |
+| rung         | example machinery                                                                                                     |
+|--------------|-----------------------------------------------------------------------------------------------------------------------|
+| intrinsic    | permission deny rules; tool removal; PreToolUse deny                                                                  |
+| static       | command hooks; plugin validation; CI checks; token-budget lints                                                       |
+| runtime      | self-recording gates, one event line per fired / denied / errored under `${CLAUDE_PLUGIN_DATA}`; PostToolUse feedback |
+| statistical  | prompt hooks with a written rubric; agent hooks when the judge needs repository state; reviewer-agent phases          |
+| experimental | resident skill-creator eval workflow (with/without runs, assertions, grading)                                         |
+| principal    | PR review checkpoint; spec consensus with exported decisions                                                          |
 
 Gate economics. Each line prices an asymmetry.
 
@@ -119,19 +118,15 @@ Gate economics. Each line prices an asymmetry.
   is worse than no gate: a believed-in gate replaces the vigilance it
   automated. Misfiring is worse than no gate when its cost exceeds what it
   catches.
-- Coverage belongs to the action, not the tool. Routes include the CLI form,
-  the MCP tool, and the plugin-scoped MCP name. A one-route gate
-  redistributes violations. Matchers are case-sensitive. A bare
-  `mcp__server` matches nothing.
 - The exit code selects channel and audience. 0: the harness reads stdout
   JSON. 2: the model reads stderr and the action blocks. Other: the human
   sees a notice and the action proceeds. A missed violation is usually
   repairable downstream. A false block costs the session's remainder. Doubt
   therefore resolves open. The exception is an irreversible violation:
   detection after the fact recovers nothing, so doubt licenses the block.
-- Blast radius orders placement. Mid-flight errors poison everything after
-  them. A terminal boundary costs one retry. Out of session costs no
-  session at all.
+- Blast radius orders placement. early flight tool errors has a large blast
+  radius on the final outcome whereas an error towards the end of the flight has
+  a very small blast radius.
 - `${CLAUDE_PLUGIN_ROOT}` is replaced on update. Durable state lives in
   `${CLAUDE_PLUGIN_DATA}`, schema-versioned, fingerprinted to the content it
   vouches for.
