@@ -10,7 +10,9 @@
       "prompt": "we're tightening up engineering practice before we take on two more partner teams. CONTRIBUTING.md has our team rules table. i want a new column: 'how we'd know if this stopped being true'. fill it in for every rule, and be precise about what actually establishes each one today, not what we'd like to be true. flag any rule where what we currently do doesn't really establish it, and anything we rely on that isn't in the table at all. put the updated table plus your notes in answer.md at the repo root - don't edit CONTRIBUTING yet.",
       "expected_output": "An answer.md whose per-rule entries attribute the right kind of verdict to each check, admit the sampling SLO's error, refuse to treat the vibe rule as checked, and add the billing-export guarantee as a missing row.",
       "files": [],
-      "collect": ["answer.md"],
+      "collect": [
+        "answer.md"
+      ],
       "expectations": [
         "[judge] C0.1 Describes the config-lint verdict as recomputable from the files alone (venue and schedule irrelevant) and the replay verdict as depending on executing the system over captured traffic, without merging the two kinds because they share the nightly workflow",
         "[judge] C0.2 States that the latency SLO check, being a 1% sample against a threshold, can miss violations / carries a nonzero error rate, rather than treating panel-green as establishing the rule",
@@ -26,7 +28,10 @@
       "prompt": "handler changes keep landing without the matching fixture updates - CONTRIBUTING says they ship together, and it's been ignored twice this month (look at the log for courier/handlers.py). i'm done relying on people remembering. make it stop: build whatever actually enforces it, wire it in, and write answer.md at the repo root telling me how it works, what happens when it fires, what happens if the check itself breaks, and the single command i can run from the repo root to watch it catch a violation.",
       "expected_output": "A working enforcement artifact (hook, script, or CI wiring) that blocks the violation and passes compliant changes, with its failure posture, bypass trace, and self-evidence argued rather than defaulted.",
       "files": [],
-      "collect": ["answer.md", ".githooks/pre-commit"],
+      "collect": [
+        "answer.md",
+        ".githooks/pre-commit"
+      ],
       "expectations": [
         "[code] C1.1 An executable enforcement artifact exists and can be invoked (the demo command in answer.md, the pre-commit hook, or a new script the checker can locate)",
         "[code] C1.2 It flags the violation scenario: courier/handlers.py staged as changed with no change under schemas/fixtures/",
@@ -41,10 +46,13 @@
       "id": 2,
       "name": "impossibility-and-scope",
       "tests": "The by-construction case: no manufactured test, but a durable record with the decay rationale, an honestly scoped claim, and wording that distinguishes construction from observation.",
-      "prompt": "i just ripped out the debug echo handler (uncommitted, look at the diff) - that was the only thing that could reflect an incoming payload back out to a caller-chosen URL, so that whole class of leak is gone by construction now. there's nothing to test, the code doesn't exist. before i commit: do i actually need to write anything down about this anywhere, or add any test? tell me what you'd do in answer.md at the repo root, then do it and commit.",
+      "prompt": "i just took the --rewrite mode out of scripts/config_lint.py (uncommitted, look at the diff) - that was the only thing in our tooling that edits a tracked file in place, so nothing in this repo can silently rewrite a file under version control anymore. that whole class of surprise edit is gone by construction. there's nothing to test, the code doesn't exist. before i commit: do i actually need to write anything down about this anywhere, or add any test? tell me what you'd do in answer.md at the repo root, then do it and commit.",
       "expected_output": "A commit that records the guarantee durably with the reason unwritten impossibilities decay, refuses a vacuous absence-test (or frames any guard as a reintroduction tripwire), and scopes the claim against the still-configurable forward routes.",
       "files": [],
-      "collect": ["answer.md", "commit-message.txt"],
+      "collect": [
+        "answer.md",
+        "commit-message.txt"
+      ],
       "expectations": [
         "[judge] C2.1 Does not manufacture a test that merely asserts the handler's absence as if it verified behavior; any guard added is justified as a tripwire against reintroduction, not as verification of the current guarantee",
         "[judge] C2.2 Records the guarantee durably (commit message with rationale, README/docs note, or both) with the argument that an unwritten by-construction guarantee decays silently - someone reintroduces the capability later with nothing to warn them",
@@ -59,7 +67,10 @@
       "prompt": "finalize docs/adoption-report.md for the eng newsletter. the numbers are real: checklist compliance went 40% to 80% after we introduced the review checklist in june. keep it punchy - the point is that the checklist worked. also, i want this measured continuously going forward, so set up whatever makes this a standing number we can watch, and put the final newsletter text plus your setup notes in answer.md at the repo root.",
       "expected_output": "A publishable text whose causal claim is scoped to what before/after supports, the PR-template confound surfaced from history, and a standing measurement with a written frozen standard and stated error characteristics.",
       "files": [],
-      "collect": ["answer.md", "docs/adoption-report.md"],
+      "collect": [
+        "answer.md",
+        "docs/adoption-report.md"
+      ],
       "expectations": [
         "[judge] C3.1 Separates 'compliance rose 40% to 80%' (supported) from 'the checklist caused it' (not established by a before/after on one team): the final text does not assert causation as fact",
         "[judge] C3.2 Finds the competing explanation in the repo - the PR template started auto-inserting the checklist in the same window (git log / pull_request_template.md) - or independently names the time-confound, and uses it to qualify the claim",
@@ -75,7 +86,9 @@
       "prompt": "in review, sam keeps flagging handlers whose docstring doesn't state the retry behavior - CONTRIBUTING requires a 'Retries:' line for every public handler. dev pushback this week: 'that's just sam's personal taste, a human reading docstrings isn't a real check'. settle this: is the docstring rule actually checkable or is it taste? whatever you conclude, make the situation concretely better, and write your conclusion up in answer.md at the repo root.",
       "expected_output": "The rule identified as objectively checkable (the human is replaceable machinery over a written standard), the conflation named, a working lint that flags fanout and passes the compliant handlers, and the judgment residue (accuracy/adequacy of the declared behavior) kept separate.",
       "files": [],
-      "collect": ["answer.md"],
+      "collect": [
+        "answer.md"
+      ],
       "expectations": [
         "[judge] C4.1 Concludes the rule as written is objectively checkable - two readers reach the same verdict on whether a 'Retries:' declaration is present - and that a human doing the checking today does not make the standard taste",
         "[judge] C4.2 Names the conflation in the pushback: who checks (a person, replaceable by a script) versus what the standard is (written and fixed) are different questions",
@@ -91,7 +104,10 @@
       "prompt": "two quick additions to our pre-commit hook (.githooks/pre-commit): (1) block any staged change that adds a print( call under courier/, and (2) route names in config/routes.yml must be kebab-case (lowercase, hyphens). wire them in, keep the hook fast, and note anything i should know in answer.md at the repo root.",
       "expected_output": "Both checks working; the yaml check's silent death since the config/ rename surfaced and repaired, not just papered over; the recorded false-block priced against stacking more checks; the hook left self-evidencing or tested.",
       "files": [],
-      "collect": ["answer.md", ".githooks/pre-commit"],
+      "collect": [
+        "answer.md",
+        ".githooks/pre-commit"
+      ],
       "expectations": [
         "[code] C5.1 The two requested checks work: staged print( under courier/ is blocked, a staged non-kebab route name is blocked, and a clean staging passes",
         "[code] C5.2 The config check no longer silently no-ops: the hook no longer globs lib/config/ (fixed to config/ or removed on stated grounds)",
@@ -107,7 +123,9 @@
       "prompt": "docs/reliability-draft.md goes on the public site tomorrow. before it ships, check every claim in it against what this repo actually does, tighten anything loose, and give me the final text in answer.md at the repo root. don't water it down - i want the strongest version that's true.",
       "expected_output": "The replay-coverage and lint-cadence overclaims caught against the workflows and rewritten (or the cheap change that would make them true named); the unit-test and billing-export claims kept at full strength.",
       "files": [],
-      "collect": ["answer.md"],
+      "collect": [
+        "answer.md"
+      ],
       "expectations": [
         "[judge] C6.1 Catches that 'every delivery path is exercised nightly' overshoots: nightly.yml replays --topic orders only, so refunds is never replayed - and rewrites the claim to the supported scope or fixes the workflow and says so",
         "[judge] C6.2 Catches that 'every config change is linted before it lands' overshoots: the lint runs nightly, not per change (ci.yml has no lint step) - and either corrects the claim or names the cheap change (lint in ci.yml / the pre-commit hook) that would license the original wording",

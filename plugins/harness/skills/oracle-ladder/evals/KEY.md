@@ -101,39 +101,46 @@ a checklist item, or a plan for people to remember harder.
 
 ## C2 impossibility-and-scope
 
-**C2.1 — no vacuous test.** A test asserting `debug_echo` is absent restates
-the diff; it verifies nothing about behavior and fails only if someone
-deliberately reverts. PASS: no such test presented as verification. A guard
-explicitly framed as a *reintroduction tripwire* (fail the build if an
-echo-like handler reappears, with the reason) is a pass — same artifact,
-honest label. FAIL: an absence-assertion offered as "the test for this
-change".
+The uncommitted change removes `--rewrite` from `scripts/config_lint.py`, the
+mode that normalized config files in place. The committed version has it; the
+working tree does not.
+
+**C2.1 — no vacuous test.** A test asserting `config_lint` has no `--rewrite`,
+or that passing the flag now errors, restates the diff. It verifies nothing
+about behavior and fails only if someone deliberately reverts. PASS: no such
+test presented as verification. A guard explicitly framed as a
+*reintroduction tripwire* (fail the build if tooling gains an in-place write
+again, with the reason) is a pass — same artifact, honest label. FAIL: an
+absence-assertion offered as "the test for this change".
 
 **C2.2 — record it anyway.** The temptation is "nothing to test, nothing to
-write". But the guarantee's whole lifetime risk is the future contributor who
-reintroduces reflection without knowing it was load-bearing. PASS: the
+write". But the whole lifetime risk is the future contributor who adds an
+in-place rewrite back without knowing the absence was deliberate. PASS: the
 guarantee lands somewhere durable a future reader would meet it (commit
-message with the why, README/security note), with some version of the decay
-argument. FAIL: bare "removed debug echo handler" commit and nothing else,
-or an answer that says committing is enough because the diff speaks for
-itself.
+message with the why, the CONTRIBUTING rules table, a note beside the script),
+with some version of the decay argument. FAIL: bare "removed the rewrite mode"
+commit and nothing else, or an answer that says committing is enough because
+the diff speaks for itself.
 
-**C2.3 — scope the claim.** "That whole class of leak is gone" is broader
-than the change. `forward()` still POSTs full payloads to whatever URLs
-`config/routes.yml` names; a bad route entry sends data to an arbitrary
-destination. What's actually gone: *caller-chosen* reflection per request.
-PASS: the residual route is named and the recorded claim is scoped to what
-the removal buys. FAIL: the user's broad claim is transcribed into the
-record. (The prior suite's baseline made exactly this move unprompted, so
-this point guards against the with-skill arm regressing below the unaided
-baseline as much as it discriminates upward.)
+**C2.3 — scope the claim.** "Nothing in this repo can silently rewrite a
+tracked file" is broader than the change. `scripts/replay.py --accept` still
+rewrites `captures/*.jsonl` in place, and it is the stronger case of the two:
+it overwrites the recorded outputs that the drift check compares against, so
+using it erases the evidence that anything drifted, and it exits 0 while doing
+so. What is actually gone is *config* rewriting. PASS: the residual is named
+and the recorded claim is scoped to what the removal buys. FAIL: the user's
+broad claim is transcribed into the record. Extra credit, not required: noting
+that the nightly workflow runs `replay.py`, so the flag sits one argument away
+from a scheduled job. (The prior suite's baseline made the scoping move
+unprompted, so this point guards against the with-skill arm regressing below
+the unaided baseline as much as it discriminates upward.)
 
-**C2.4 — construction vs observation.** "No code path can do X as of this
+**C2.4 — construction vs observation.** "No tooling can do X as of this
 commit" and "we looked and X doesn't happen" have different lifetimes and
 different failure modes; the record should read as the former. PASS: wording
-that pins the guarantee to the construction (and implicitly to the commit
-that holds it). FAIL: wording like "verified that payloads are no longer
-reflected", which claims an observation nobody made and invites re-checking
+that pins the guarantee to the construction (and implicitly to the commit that
+holds it). FAIL: wording like "verified that config files are no longer
+rewritten", which claims an observation nobody made and invites re-checking
 theater. This is the subtlest point in the suite; grade the wording actually
 recorded, and use Unknown if the record makes no claim of either kind.
 

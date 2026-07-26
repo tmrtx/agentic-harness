@@ -180,12 +180,22 @@ all. What it established:
   C5.3 rewards. Fixed to ignore comments, with a re-broken hook confirming it
   still bites. The count of fairness defects found per pilot is itself worth
   tracking: two suites, two defects, both only visible under execution.
-- **C2 cannot be run as written.** Its prompt is phrased around reflecting a
-  payload to a caller-chosen URL, which trips a safety classifier; one arm
-  died mid-run with an AUP flag while the same case succeeded in another
-  batch, so the failure is intermittent rather than deterministic. A case that
-  sometimes cannot execute cannot measure. Reword to preserve the
-  intrinsic-impossibility structure without the exfiltration framing.
+- **C2 was rewritten because it could not reliably run.** Its original
+  prompt was phrased around reflecting a payload to a caller-chosen URL, and
+  that wording trips a safety classifier: one arm died mid-run with an AUP
+  flag while the same case succeeded in another batch. A case that sometimes
+  cannot execute cannot measure, and a flaky-by-classifier case is worse than
+  a missing one because the failure looks like a result.
+
+  The case now removes the `--rewrite` mode from `scripts/config_lint.py` — the
+  repo's own tooling, which is the kind of work this harness is actually used
+  for. The structure is unchanged and the trap is sharper: `replay.py --accept`
+  still rewrites `captures/*.jsonl` in place, so the class the user declares
+  gone is not gone, and the surviving member is the worse one — it overwrites
+  the recorded outputs the drift check compares against, erasing the evidence
+  that anything drifted, and exits 0 while doing it. Verified end to end: the
+  committed script has the mode, the working tree does not, and `--accept`
+  demonstrably rewrites tracked records.
 - **Rung names earn nothing, as intended.** The with-skill C2 run classified
   the deletion `static` rather than `intrinsic`, arguing a violating artifact
   is still constructible because `urllib.request` remains imported and

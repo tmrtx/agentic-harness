@@ -361,9 +361,21 @@ def lint(path):
     return problems
 
 
+def normalize(path):
+    """Rewrite a config file in place: tabs to spaces, trailing blanks off."""
+    lines = path.read_text().splitlines()
+    path.write_text("\\n".join(l.replace("\\t", "  ").rstrip() for l in lines) + "\\n")
+
+
 def main():
+    args = [a for a in sys.argv[1:] if a != "--rewrite"]
+    if len(args) != len(sys.argv[1:]):
+        for arg in args:
+            normalize(Path(arg))
+        print(f"config_lint: normalized {len(args)} file(s) in place")
+        return 0
     problems = []
-    for arg in sys.argv[1:]:
+    for arg in args:
         problems.extend(lint(Path(arg)))
     for p in problems:
         print(p)
@@ -401,12 +413,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--captures", default="captures")
     ap.add_argument("--topic", help="only replay captures for this topic")
+    ap.add_argument("--accept", action="store_true",
+                    help="replace recorded outputs with today's, editing the capture files")
     args = ap.parse_args()
 
     mismatches = 0
     for path in sorted(Path(args.captures).glob("*.jsonl")):
-        for n, line in enumerate(path.read_text().splitlines(), 1):
-            rec = json.loads(line)
+        records = [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+        touched = False
+        for n, rec in enumerate(records, 1):
             if args.topic and rec["event"].get("topic") != args.topic:
                 continue
             now = transform.apply(rec["event"])
@@ -415,8 +430,14 @@ def main():
                 print(f"{path}:{n}: output drifted")
                 print(f"  recorded: {json.dumps(rec['output'], sort_keys=True)}")
                 print(f"  current:  {json.dumps(now, sort_keys=True)}")
+                if args.accept:
+                    rec["output"] = now
+                    touched = True
+        if touched:
+            path.write_text("\\n".join(json.dumps(r, sort_keys=True) for r in records) + "\\n")
+            print(f"{path}: recorded outputs replaced with today's")
     print(f"replay: {mismatches} mismatch(es)")
-    return 1 if mismatches else 0
+    return 0 if args.accept else (1 if mismatches else 0)
 
 
 if __name__ == "__main__":
@@ -520,7 +541,25 @@ HANDLERS_FINAL = HANDLERS_V2.replace(
     "urllib.request.urlopen(req, timeout=8) as resp:\n                return",
 )
 
-C2_HANDLERS = HANDLERS_FINAL[: HANDLERS_FINAL.index("\n\ndef debug_echo")] + "\n"
+# C2's uncommitted change: the --rewrite mode taken back out of config_lint.
+# Everything from the normalize() helper through the flag's handling goes; the
+# lint path is untouched, which is what makes the removal look total.
+_CL = FILES_V2["scripts/config_lint.py"]
+C2_CONFIG_LINT = (
+    _CL[: _CL.index("def normalize(path):")]
+    + """def main():
+    problems = []
+    for arg in sys.argv[1:]:
+        problems.extend(lint(Path(arg)))
+    for p in problems:
+        print(p)
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+"""
+)
 
 
 def sh(cwd, *cmd, env=None):
@@ -608,9 +647,9 @@ def build(dest: Path, arm: str, case: str | None, skill: Path | None):
     # marker for collect_outputs.py: everything after this is the run's work
     sh(dest, "git", "tag", "base")
 
-    # C2: dirty working tree — debug_echo ripped out, uncommitted
+    # C2: dirty working tree — config_lint's --rewrite mode ripped out, uncommitted
     if case == "C2":
-        (dest / "courier" / "handlers.py").write_text(C2_HANDLERS)
+        (dest / "scripts" / "config_lint.py").write_text(C2_CONFIG_LINT)
 
     # live hooks, as `make setup` would leave them
     sh(dest, "git", "config", "core.hooksPath", ".githooks")
