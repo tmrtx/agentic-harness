@@ -1,110 +1,158 @@
 # Evals for the oracle-ladder skill
 
-A skill that classifies oracles should carry one. This suite is the skill's own
-placement: `experimental | derived` — the verdict on whether the ladder changes
-behavior requires a counterfactual variant, so the harness runs with/without
-pairs in fresh sessions and reads the delta.
+A skill that classifies oracles should carry one. This suite is the skill's
+own placement: `experimental | derived` — whether the ladder changes behavior
+needs a counterfactual, so the harness runs with/without arms in fresh
+sandboxes and reads the delta. Nothing here loads at runtime; bundled files
+cost tokens only when read.
 
-Nothing here loads at runtime. Bundled files next to `SKILL.md` cost tokens only
-when something reads them, so the suite is free to consumers who never run it.
+## What this suite measures, and what the last one measured instead
 
-## What the suite claims
+The first suite ran its ablation inside a copy of this repository with only
+the skill directory deleted. That design had two fatal properties, found by
+running it:
 
-The ladder's value is not that an agent can recite six rung names. The
-repository already leaks the vocabulary: `oracle-state.json`, `oracles.jsonl`,
-and `commit-protocol` all name the dimensions, and an agent with none of the
-skill can reconstruct the format from them. So the suite is built so the
-baseline keeps all of that. What the ladder has to add on top is:
+1. **The environment was a crib.** `oracle-state.json`, `oracles.jsonl`,
+   `commit-protocol`, and the shape gate teach the vocabulary, the schema,
+   and the recording obligation. 56 of 63 assertions passed in both arms;
+   the whole +11% delta lived in seven assertions.
+2. **The ablation announced itself.** Dangling references ("required per the
+   oracle-ladder skill") told the baseline something had been removed, and
+   baselines said so in their answers and compensated.
 
-- **classification discipline** — the first-match order, and the rule that
-  machinery never determines class;
-- **justification depth** — graduated downward, so a low rung carries its case;
-- **complete records** — including the placements that feel too obvious to
-  record.
+So it measured the repository's redundancy, not the skill. The claim worth
+measuring is the deployment claim: *in a repository with no oracle culture,
+does the skill make verification reasoning and enforcement design measurably
+more disciplined?* That is what a consumer buys, and it is the only framing
+in which the baseline arm is clean.
 
-Each eval targets a point where a capable agent, reasoning from the repository
-alone, plausibly lands somewhere defensible but wrong.
+## Two tiers
 
-| eval | tests |
-|---|---|
-| 0 `record-instruction-change` | a routine instruction edit gets a full record: rung, section, trailer, ledger line |
-| 1 `static-not-runtime-trap` | a CI job that executes does not drag the verdict off `static` |
-| 2 `choose-enforcement-machinery` | the gate economics get priced, not just a hook proposed |
-| 3 `statistical-vs-experimental` | the measurement and the causal claim get separated |
-| 4 `intrinsic-still-recorded` | "nothing to test" does not become "nothing to record" |
+**Capability tier** (`evals.json`, the headline) — 7 chores in a synthetic
+host repository, `courier` (built by `host/build_host.py`): a small webhook
+service with a real git history and one planted trap per case. Prompts are
+ordinary asks — audit our checks, enforce this rule, do I need to write this
+down, finalize this report — with zero ladder vocabulary. The unit of
+measurement is the **decision point**: each case has 4–7, each keyed in
+`KEY.md` with the correct move, why, acceptable alternates, and the plausible
+wrong move. Points are graded semantically ([judge], blind, vocabulary earns
+nothing) or behaviorally ([code], `check_artifacts.py` drives whatever the
+agent built against planted violation/compliant fixtures). Every point is
+designed to be failable by either arm; per Anthropic's evals guidance,
+capability cases should start at a low pass rate and leave headroom.
 
-## Grading
+**Transmission tier** (`transmission.json`) — 2 with-skill-only cases in a
+copy of this repository, graded by `check_record.py`. These verify the
+recording contract still transmits (trailer, `[ORACLE]` section, ledger
+append-only, intrinsic-still-recorded). Passes here are **not evidence of
+value** — the prior run proved the environment produces most of this format
+without the skill. They are regression cover with a ~100% target, kept out
+of the headline. There is no baseline arm here on purpose: running one is
+how the old suite manufactured 56 dead assertions.
 
-Split by what each half can actually decide.
+Trigger coverage stays in `trigger-evals.json` (should/should-not-trigger
+prompts), unchanged: triggering and output quality are separate measurements.
 
-**Code** (`check_record.py`) owns every verdict that is a total function of the
-artifacts at rest — the `[ORACLE]` section, the trailer, the ledger's
-append-only invariant, whether a cited `ORC-` code resolves. These are fast,
-reproducible, and identical across graders. The trailer regex is deliberately
-the one the shipped commit-shape gate uses; if they ever diverge, the suite
-would be grading a contract the repository does not enforce.
+## How the leak is closed
 
-**A judge** owns what needs reading: whether the argument was made, whether the
-instinct was rejected on the right grounds, whether the justification is
-proportionate. Judge runs are graded blind — outputs are staged under opaque
-ids so the grader cannot see which arm produced them — and by a different model
-than the one that produced them.
+- The host is synthetic and fully authored: no file, commit message, or
+  prompt contains the skill's vocabulary or exhaust. `host/lint_host.py`
+  enforces this with an over-broad denylist ("oracle", "rung", "skill",
+  "eval", "static", …) and runs on every build; a hit fails the build.
+- Nothing is removed from the baseline sandbox, so there is nothing to
+  detect: both arms get the same coherent repo, differing only by
+  `.claude/skills/oracle-ladder/SKILL.md` and one loading sentence in the
+  executor prompt (the same asymmetry real skill loading has).
+- Fresh sandbox per run, fresh git history per build — no prior-trial
+  artifacts, no shared state (the documented cross-trial inflation vector).
+- Closure is also *measured*, not just designed: judges answer an
+  awareness meta-question per submission (did the output betray any sense of
+  being tested, or reference absent instructions?), and `summarize.py`
+  prints any flag loudly. The prior suite would have failed this check.
 
-Assertions carry a `[code]` or `[judge]` prefix so a reader of the results
-knows which kind of verdict they are looking at.
+## Grading architecture
 
-`reference/` holds a hand-written correct answer for eval 0. It exists to prove
-two things at once: the task is solvable, and the graders pass a known-good
-artifact. Run it first — a checker that fails the reference is broken, and any
-run it grades afterward is noise.
+- **Code decides** what is a total function of artifacts: the built
+  enforcement blocks the planted violation and passes the compliant case;
+  the hook stopped globbing the renamed directory; the recording files parse
+  and append (transmission tier).
+- **A judge decides** what needs reading, blind (opaque submission ids,
+  `stage_blind.py`), one decision point at a time against its `KEY.md`
+  entry, with an Unknown escape hatch and a different model from the solver
+  (`judge.md`). Key entries are argued from the cases, not quoted from the
+  skill — so a regression in the skill shows up as with-skill answers
+  making wrong moves, not as the key drifting along with the prose.
+- **A human decides** key disputes: judges record `disputed` verdicts
+  instead of silently overriding, and the fairness protocol in `KEY.md`
+  says how a wrong key entry gets fixed and re-graded.
+
+## Reading the numbers
+
+`summarize.py` merges verdicts into per-run `grading.json` (compatible with
+skill-creator's `aggregate_benchmark.py` and viewer) and writes
+`discrimination.md`:
+
+- arm means over decision points — the headline;
+- per-point discrimination buckets — points both arms always pass are
+  flagged **RETIREMENT CANDIDATE** (they measure the environment; retire or
+  demote them), points only the baseline wins are investigated as fairness
+  defects first;
+- all-points-pass per case per arm — the pass^k view; instructions must
+  hold every time, so the honest unit across repeated trials is the run
+  where nothing slipped;
+- awareness flags and the fairness log.
+
+Single runs are a smoke test. Report at ≥3 runs per arm and read the
+stddev before believing a delta.
+
+## Keeping headroom
+
+Saturation is handled structurally, not once:
+
+- The with-skill arm is *supposed* to score below 100% here: several points
+  (claim scoping C2.3, anti-sandbagging C6.3, the reverse misfile C4, the
+  compliance-pressure points C3) sit at or past the skill's current teaching
+  edge. When the skill improves, those move; the audit shows which.
+- The retirement protocol: any point in "both always pass" across two
+  consecutive iterations gets retired to a comment or rewritten harder.
+  The traps bank (KEY.md's "plausible wrong move" lines) is where new,
+  harder variants come from.
+- Known-weak points are labelled in `KEY.md` ("Known-weak points, kept
+  deliberately") — read the headline with them discounted.
+
+## Running
+
+See `RUNBOOK.md` for the exact orchestration (sandbox builds, executor
+prompts verbatim, collection, code grading, blind staging, judging, merge).
+Validate the graders before trusting a run:
 
 ```sh
+python3 evals/host/build_host.py --dest /tmp/ht --arm without   # lint runs, must pass
 python3 evals/check_record.py --outputs evals/reference \
-  --baseline-ledger oracles.jsonl --expect-class principal \
-  --expect-ground-truth principal --require-commit
+  --baseline-ledger evals/reference/baseline-oracles.jsonl \
+  --expect-class principal --expect-ground-truth principal --require-commit
 ```
 
-## Running the suite
+`reference/` is a hand-written correct transmission-tier answer: a checker
+that fails it is broken, and any run it grades afterward is noise.
+`check_artifacts.py` is validated the same way in RUNBOOK step 0 (known-good
+and known-bad artifacts must split).
 
-The orchestration is agent-driven; `skill-creator` is the harness. The shape
-that matters, and the reasons it takes that shape:
+## Honesty ledger
 
-1. **Build one sandbox per run** from a clean checkout with
-   `skills/oracle-ladder/` removed, and make each eval's premise true in it
-   (eval 0 needs a dirty `specification/SKILL.md`; eval 4 needs `WebSearch`
-   removed from `reviewer.md` against a baseline commit that had it). Every
-   trial starts from its own copy, because shared state between runs turns
-   infrastructure flakiness into what looks like a behavior difference.
-2. **Spawn both arms in the same batch.** The with-skill run is handed the
-   `SKILL.md` path; the baseline is handed nothing. Both are told the sandbox
-   is their whole world, so neither can read the skill off the real checkout.
-3. **Grade end state, not path.** Agents reach the same place by different
-   routes; grading the route penalizes valid ones.
-4. **Record `total_tokens` and `duration_ms`** from each run as it finishes.
-   A skill that buys accuracy with a large token bill is a trade the reader
-   should get to see, and the numbers are not recoverable later.
+Claims this suite makes about itself, and their status:
 
-Instructions have to hold every time, not once, so the honest metric across
-repeated trials is the probability that *all* of them pass, not that one did.
-Single-run numbers are a smoke test; treat them as such.
-
-## Keeping the suite honest
-
-The failure mode to watch for is a suite that agrees with the skill by
-construction. Several assertions are drawn from the skill's own content, which
-means they measure whether the skill transmitted its content — not whether that
-content is right. Read them that way.
-
-Two audits are worth repeating each round:
-
-- **Non-discriminating assertions.** An assertion both arms always pass is
-  measuring the repository, not the skill. Eval 0's format checks are already
-  in this category: `commit-protocol` and the shape gate secure them without
-  the ladder. They stay because they are regression cover, but they should not
-  be read as evidence the skill works.
-- **Unfair assertions.** If a run fails an assertion while being defensibly
-  right, the assertion is wrong and gets fixed — not the run. This has already
-  happened once: eval 1 originally demanded a `[static|specified]` trailer, and
-  both arms answered `[runtime|specified]` on the sound reasoning that the
-  trailer records the oracle verifying *this commit* rather than the class of
-  the check being installed. The assertion now grades internal consistency.
+- "The baseline cannot reconstruct the skill from the environment" —
+  enforced by construction + lint + measured by awareness flags.
+- "Most points can fail in either arm" — by design; verified per iteration
+  by the discrimination buckets, with named exceptions (C3.5, C6.4 are
+  anti-refusal guardrails and expected to sit in both-always-pass).
+- "A deliberate regression shows up" — mechanically for the format contract
+  (transmission tier fails) and behaviorally for the teaching (key is
+  skill-independent, so a mistaught with-skill arm fails capability
+  points); not yet demonstrated end-to-end with a sabotaged skill — worth
+  doing once as a suite self-test.
+- Judge blindness is *approximate*: with-skill answers may speak the
+  skill's dialect, and no staging can hide dialect. Mitigations: semantic
+  keys, vocabulary-earns-nothing rule, per-point isolation, non-solver
+  judge model. Residual risk is real and stated.

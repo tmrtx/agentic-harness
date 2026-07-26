@@ -1,0 +1,37 @@
+{
+  "skill_name": "oracle-ladder",
+  "tier": "transmission-regression",
+  "notes": "With-skill arm ONLY, run in a copy of this harness repository with the plugin regime intact (no ablation, so no leak question arises). These cases verify that the skill still transmits its recording contract end to end: trailer, [ORACLE] section, ledger append, state integrity, and the intrinsic-still-recorded rule. Prior benchmarking showed the environment alone (commit-protocol, the shape gate, existing records) produces most of this format without the skill, so passes here are NOT evidence the skill adds value and are excluded from the headline delta. They are regression cover: an edit to the skill that breaks its own format contract fails here first. Target pass rate is ~100% (a capability-tier case should start low; a regression case should stay high). Graded entirely by check_record.py; validate the checker against reference/ before trusting any run it grades.",
+  "cases": [
+    {
+      "id": "T0",
+      "name": "record-instruction-change",
+      "prompt": "i just reworded plugins/harness/skills/specification/SKILL.md so every spec has to list the alternatives that were rejected and why. the edit is done, working tree is dirty. commit it the way this repo wants commits done.",
+      "setup": [
+        "printf '\\n- Every specification lists the alternatives it rejected and why each lost.\\n' >> plugins/harness/skills/specification/SKILL.md"
+      ],
+      "grader": {
+        "mode": "commit",
+        "expect_class": "principal",
+        "expect_ground_truth": "principal"
+      },
+      "checks": "check_record.py --require-commit --expect-class principal --expect-ground-truth principal"
+    },
+    {
+      "id": "T1",
+      "name": "intrinsic-still-recorded",
+      "prompt": "i took WebSearch off the reviewer subagent's tools list in plugins/harness/agents/reviewer.md so it physically can't pull in non-anthropic sources anymore. there's nothing to test here, the tool isn't there. do i need to record anything or can i just commit it?",
+      "setup": [
+        "sed -i 's/^tools: Read, Grep, Glob, Bash$/tools: Read, Grep, Glob, Bash, WebSearch/' plugins/harness/agents/reviewer.md",
+        "git add plugins/harness/agents/reviewer.md && git -c user.name=setup -c user.email=setup@local commit -q -m 'reviewer: allow WebSearch for release-note lookups'",
+        "sed -i 's/^tools: Read, Grep, Glob, Bash, WebSearch$/tools: Read, Grep, Glob, Bash/' plugins/harness/agents/reviewer.md"
+      ],
+      "grader": {
+        "mode": "commit",
+        "expect_class": "intrinsic",
+        "expect_ground_truth": "specified"
+      },
+      "checks": "check_record.py --require-commit --expect-class intrinsic --expect-ground-truth specified"
+    }
+  ]
+}

@@ -38,7 +38,7 @@
     "oracle-class": "experimental",
     "ground-truth": "derived",
     "since": "2026-07-25",
-    "subject": "whether the oracle-ladder skill changes how an agent classifies and records",
-    "mechanism": "plugins/harness/skills/oracle-ladder/evals/evals.json run as with/without pairs in fresh sessions, code-graded on artifacts and blind-judged on argument"
+    "subject": "whether the oracle-ladder skill measurably changes verification reasoning and enforcement design",
+    "mechanism": "plugins/harness/skills/oracle-ladder/evals: capability-tier cases run with/without the skill in fresh synthetic host repositories, decision points blind-judged against evals/KEY.md; transmission tier reported separately as regression cover, never as evidence of value"
   }
 }
