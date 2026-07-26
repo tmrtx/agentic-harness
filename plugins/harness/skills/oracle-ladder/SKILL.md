@@ -51,14 +51,16 @@ without being written anywhere. `principal`: held by the principal.
 
 ## Policy
 
-- A expectation should aim to sit at the highest rung attainable. The higher the
-  rung, the easier it'll be accepted into the repository. 'principal' having the
-  highest rejection rate.
-- Justification grows superlinearly downward. Rung 0 justifies itself. Each rung
-  needs to justify what makes attaining a higher rung by reframing the problem
-  not possible. A principal placement needs to have a very convincing
-  justification on why even the 'experimental' oracle (eval workflow) wasn't
-  available and has to create burden for the 'principal'.
+- A expectation should aim to sit at the highest rung attainable (Rung 0). The
+  higher the rung, the more likely it'll be accepted into the repository,
+  'principal' having the highest rejection rate.
+- Justification grows superlinearly. Rung 0's justification is self-evident.
+  Each rung needs to justify what makes attaining a higher rung by reframing the
+  problem not possible. A principal placement (Rung 5) needs to have a very
+  strong justification and accompanied evidence (approaches considered and not
+  used for each rung above) and also justification why the fallback
+  'experimental' oracle (eval workflow) wasn't available and has to create
+  burden for the 'principal'.
 - Every placement is recorded. Intrinsic placements are included. An
   impossibility is still an expectation. Unrecorded, it is invisible to the
   ratchet and silently un-owned.
@@ -108,7 +110,7 @@ The ladder is platform-free. This section is its Claude Code instantiation. It e
 | intrinsic    | permission deny rules; tool removal; PreToolUse deny                                                                  |
 | static       | command hooks; plugin validation; CI checks; token-budget lints                                                       |
 | runtime      | self-recording gates, one event line per fired / denied / errored under `${CLAUDE_PLUGIN_DATA}`; PostToolUse feedback |
-| statistical  | prompt hooks with a written rubric; agent hooks when the judge needs repository state; reviewer-agent phases          |
+| statistical  | hooks with a written rubric; agent hooks when the judge needs repository state too                                    |
 | experimental | resident skill-creator eval workflow (with/without runs, assertions, grading)                                         |
 | principal    | PR review checkpoint; spec consensus with exported decisions                                                          |
 
