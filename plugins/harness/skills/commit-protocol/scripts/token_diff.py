@@ -181,6 +181,16 @@ def main():
 
     added = removed = 0
     try:
+        # Selection validation, like the empty-derivation check below: a
+        # revision that does not resolve must never become a figure measured
+        # against the void. Exit 1 - nothing paste-able.
+        for rev in (args.base, args.target):
+            if rev and subprocess.run(
+                    ["git", "rev-parse", "--verify", "--quiet",
+                     rev + "^{commit}"], capture_output=True).returncode != 0:
+                print("token_diff.py: cannot resolve revision '%s'" % rev,
+                      file=sys.stderr)
+                return 1
         paths = args.paths or derive_paths(args.base, args.target)
         if not paths:
             # An empty derivation is a selection problem, not a measurement:
@@ -215,7 +225,9 @@ def main():
             added += max(delta, 0)
             removed += max(-delta, 0)
     except Unavailable as e:
-        print("Token diff: unavailable (%s)" % e)
+        # One line, always: multi-line tool output pasted into a commit body
+        # would mangle the record while still satisfying a prefix match.
+        print("Token diff: unavailable (%s)" % " ".join(str(e).split()))
         return 2
 
     print("Token diff: +%d/-%d (net %+d, %s)" % (added, removed, added - removed,

@@ -158,6 +158,13 @@ check_rc "post-commit bare run exits 1" 1 "$rc"
 [ -z "$out" ] && echo "PASS: post-commit bare run prints no line" || { echo "FAIL: post-commit bare run printed: $out"; fails=$((fails+1)); }
 grep -q -- '--base <sha>^ --target <sha>' "$TMP/err4c" && echo "PASS: post-commit bare run names the recovery" || { echo "FAIL: recovery hint missing: $(cat "$TMP/err4c")"; fails=$((fails+1)); }
 
+# 4d. an unresolvable revision is a selection error: exit 1, nothing on
+#     stdout - never a figure measured against the void
+out="$(cd "$R" && python3 "$SCRIPT" --base nosuchrev skills/a/f1.md 2>"$TMP/err4d")"; rc=$?
+check_rc "bad revision exits 1" 1 "$rc"
+[ -z "$out" ] && echo "PASS: bad revision prints no line" || { echo "FAIL: bad revision printed: $out"; fails=$((fails+1)); }
+grep -q "nosuchrev" "$TMP/err4d" && echo "PASS: bad revision named on stderr" || { echo "FAIL: stderr: $(cat "$TMP/err4d")"; fails=$((fails+1)); }
+
 # 5. a named path absent on both sides aborts: a wrong list must not read
 #    as a measured zero
 out="$(cd "$R" && python3 "$SCRIPT" skills/a/nope.md 2>/dev/null)"; rc=$?
@@ -181,6 +188,7 @@ g add skills/a/f5.md
 out="$(cd "$R" && python3 "$SCRIPT" skills/a/f5.md 2>/dev/null)"; rc=$?
 check_prefix "endpoint failure degrades to unavailable" "Token diff: unavailable (" "$out"
 check_rc "endpoint failure exits 2" 2 "$rc"
+[ "$(printf '%s' "$out" | grep -c '')" -eq 1 ] && echo "PASS: unavailable stays one line" || { echo "FAIL: unavailable spans lines: <$out>"; fails=$((fails+1)); }
 g rm -q --cached skills/a/f5.md
 
 # 8. no resolvable credentials: prints the unavailable line, exit 2.
