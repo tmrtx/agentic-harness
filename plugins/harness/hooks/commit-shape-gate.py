@@ -21,16 +21,19 @@ try:
         sys.exit(0)  # HEAD predates this command; grandfathered history is not this gate's subject
 
     body = git("log", "-1", "--format=%B").stdout
-    shape_ok = (re.search(r"^\[ORACLE\]\s*$", body, re.M)
-                and re.search(r"^Oracle: \[[^|\]\s]+\|[^|\]\s]+\]\s*$", body, re.M))
-    if shape_ok:
+    problems = []
+    if not (re.search(r"^\[ORACLE\]\s*$", body, re.M)
+            and re.search(r"^Oracle: \[[^|\]\s]+\|[^|\]\s]+\]\s*$", body, re.M)):
+        problems.append("the [ORACLE] section and the "
+                        "Oracle: [<oracle-class>|<ground-truth>] trailer are "
+                        "required per the oracle-ladder skill")
+    if not problems:
         sys.exit(0)
 
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "PostToolUse",
-        "additionalContext": "Commit " + sha[:7] + ": the [ORACLE] section and the "
-        "Oracle: [<oracle-class>|<ground-truth>] trailer are required per the "
-        "oracle-ladder skill. `git commit --amend` adds them."}}))
+        "additionalContext": "Commit " + sha[:7] + ": " + "; also, ".join(problems)
+        + ". `git commit --amend` adds them."}}))
     sys.exit(0)
 except SystemExit:
     raise
