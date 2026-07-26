@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Commit-shape gate: static-class oracle for the commit protocol's [ORACLE]
-# section and Oracle trailer. PostToolUse feedback, never a block; fails open
+# section, Oracle trailer, and the Token diff line on steering-text commits.
+# PostToolUse feedback, never a block; fails open
 # on every internal error. Kill switch: HARNESS_COMMIT_SHAPE_GATE_DISABLE.
 # The hook payload arrives on stdin and must flow through to the python
 # process untouched, so the logic lives in the sibling .py file - a heredoc
