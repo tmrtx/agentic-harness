@@ -19,5 +19,12 @@
     "since": "2026-07-25",
     "subject": "every commit's shape: the [ORACLE] section and the Oracle trailer",
     "mechanism": "plugins/harness/hooks/commit-shape-gate.sh via PostToolUse on Bash; tested by tests/commit-shape-gate-test.sh"
+  },
+  "ORC-4": {
+    "oracle-class": "runtime",
+    "ground-truth": "specified",
+    "since": "2026-07-26",
+    "subject": "the token-diff script's behavior",
+    "mechanism": "tests/token-diff-test.sh"
   }
 }
