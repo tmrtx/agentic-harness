@@ -165,6 +165,13 @@ check_rc "bad revision exits 1" 1 "$rc"
 [ -z "$out" ] && echo "PASS: bad revision prints no line" || { echo "FAIL: bad revision printed: $out"; fails=$((fails+1)); }
 grep -q "nosuchrev" "$TMP/err4d" && echo "PASS: bad revision named on stderr" || { echo "FAIL: stderr: $(cat "$TMP/err4d")"; fails=$((fails+1)); }
 
+# 4e. a directory is a selection error, not a deletion: git show prints a
+#     tree listing for rev:dir, which must never be measured as content
+out="$(cd "$R" && python3 "$SCRIPT" skills/a 2>"$TMP/err4e")"; rc=$?
+check_rc "directory path exits 1" 1 "$rc"
+[ -z "$out" ] && echo "PASS: directory path prints no line" || { echo "FAIL: directory path printed: $out"; fails=$((fails+1)); }
+grep -q "tree" "$TMP/err4e" && echo "PASS: directory named as a tree on stderr" || { echo "FAIL: stderr: $(cat "$TMP/err4e")"; fails=$((fails+1)); }
+
 # 5. a named path absent on both sides aborts: a wrong list must not read
 #    as a measured zero
 out="$(cd "$R" && python3 "$SCRIPT" skills/a/nope.md 2>/dev/null)"; rc=$?

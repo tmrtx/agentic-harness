@@ -68,8 +68,23 @@ class Unavailable(Exception):
     """Counting cannot proceed; degrade to the `unavailable` line."""
 
 
+class SelectionError(Exception):
+    """The caller named something unmeasurable; exit 1, nothing paste-able."""
+
+
 def git_blob(spec):
-    """Content of `git show <spec>`, or None when the path is absent there."""
+    """Content of the blob at `git show <spec>`, or None when absent there.
+
+    The object type is checked first: `git show rev:dir` happily prints a
+    tree listing, which measured as content would read a directory as a
+    deletion or addition.
+    """
+    t = subprocess.run(["git", "cat-file", "-t", spec],
+                       capture_output=True, text=True)
+    if t.returncode != 0:
+        return None
+    if t.stdout.strip() != "blob":
+        raise SelectionError("%s is a %s, not a file" % (spec, t.stdout.strip()))
     r = subprocess.run(["git", "show", spec], capture_output=True)
     return r.stdout.decode("utf-8", "replace") if r.returncode == 0 else None
 
@@ -224,6 +239,9 @@ def main():
             print("token_diff.py: %s %+d" % (path, delta), file=sys.stderr)
             added += max(delta, 0)
             removed += max(-delta, 0)
+    except SelectionError as e:
+        print("token_diff.py: %s" % e, file=sys.stderr)
+        return 1
     except Unavailable as e:
         # One line, always: multi-line tool output pasted into a commit body
         # would mangle the record while still satisfying a prefix match.
