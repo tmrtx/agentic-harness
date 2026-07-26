@@ -198,7 +198,9 @@ def main():
             before = git_blob("%s:%s" % (args.base, path))
             target_spec = "%s:%s" % (args.target, path) if args.target else ":%s" % path
             after = git_blob(target_spec)
-            if not before and not after:
+            if before is None and after is None:
+                # Absent on both sides means the list is wrong; an empty
+                # string is a real zero-cost side and measures normally.
                 raise Unavailable("path not found on either side: %s" % path)
             delta = (counter.count(after if after else SENTINEL)
                      - counter.count(before if before else SENTINEL))

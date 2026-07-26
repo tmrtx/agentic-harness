@@ -109,6 +109,16 @@ grep -q 'skills/a/f1.md +2' "$TMP/err1" && echo "PASS: stderr breaks down per-fi
 out="$(cd "$R" && python3 "$SCRIPT" 2>/dev/null)"
 check_line "derived paths match and filter steering text" "Token diff: +3/-4 (net -1, claude-opus-5)" "$out"
 
+# 2b. an empty steering file is a real zero-cost side, not an absent path:
+#     it must not abort the figure for the rest of the commit
+printf '' > "$R/skills/a/empty.md"
+g add skills/a/empty.md
+out="$(cd "$R" && python3 "$SCRIPT" 2>/dev/null)"; rc=$?
+check_line "empty file measures as zero" "Token diff: +3/-4 (net -1, claude-opus-5)" "$out"
+check_rc "empty file exits 0" 0 "$rc"
+g rm -q --cached skills/a/empty.md
+rm -f "$R/skills/a/empty.md"
+
 g commit -qm change
 
 # 3. an unchanged file contributes zero; --model is named in the line AND
