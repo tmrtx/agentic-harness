@@ -1,0 +1,1715 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inside skill-creator</title>
+<meta name="description" content="An annotated interactive deep-dive into Anthropic's skill-creator skill: anatomy, eval machinery, description optimization, and design rationale.">
+<style>*, *::before, *::after { box-sizing: border-box; } body { margin: 0; }</style>
+</head>
+<body>
+<style>
+  /* ============ tokens ============ */
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --well: #f1f0ec;
+    --ink: #0b0b0b;
+    --ink2: #52514e;
+    --muted: #898781;
+    --hair: #e1e0d9;
+    --baseline: #c3c2b7;
+    --mech: #1c5cab;        /* mechanism accent — text-safe */
+    --mech-mark: #2a78d6;   /* mechanism accent — marks */
+    --mech-wash: rgba(42,120,214,0.08);
+    --why: #a2470f;         /* rationale accent — text-safe */
+    --why-mark: #eb6834;    /* rationale accent — marks */
+    --why-wash: rgba(235,104,52,0.08);
+    --good: #0ca30c;
+    --good-text: #006300;
+    --crit: #d03b3b;
+    --crit-text: #b13030;
+    --ring: rgba(11,11,11,0.10);
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --well: #232322;
+      --ink: #ffffff;
+      --ink2: #c3c2b7;
+      --muted: #898781;
+      --hair: #2c2c2a;
+      --baseline: #383835;
+      --mech: #86b6ef;
+      --mech-mark: #3987e5;
+      --mech-wash: rgba(57,135,229,0.14);
+      --why: #f0946a;
+      --why-mark: #d95926;
+      --why-wash: rgba(217,89,38,0.14);
+      --good: #0ca30c;
+      --good-text: #2fbf2f;
+      --crit: #d03b3b;
+      --crit-text: #e66767;
+      --ring: rgba(255,255,255,0.10);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --well: #232322;
+    --ink: #ffffff;
+    --ink2: #c3c2b7;
+    --muted: #898781;
+    --hair: #2c2c2a;
+    --baseline: #383835;
+    --mech: #86b6ef;
+    --mech-mark: #3987e5;
+    --mech-wash: rgba(57,135,229,0.14);
+    --why: #f0946a;
+    --why-mark: #d95926;
+    --why-wash: rgba(217,89,38,0.14);
+    --good: #0ca30c;
+    --good-text: #2fbf2f;
+    --crit: #d03b3b;
+    --crit-text: #e66767;
+    --ring: rgba(255,255,255,0.10);
+  }
+
+  /* ============ base ============ */
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16.5px;
+    line-height: 1.68;
+    margin: 0;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 0 20px; }
+  .plate-wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+  p { margin: 0 0 1.05em; }
+  a { color: var(--mech); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  strong { font-weight: 650; }
+  code, .mono { font-family: var(--mono); }
+  code {
+    font-size: 0.85em;
+    background: var(--well);
+    border: 1px solid var(--hair);
+    border-radius: 4px;
+    padding: 0.08em 0.34em;
+    white-space: nowrap;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--mech-mark); outline-offset: 2px; border-radius: 3px; }
+
+  h1, h2, h3, h4 { font-family: var(--sans); text-wrap: balance; line-height: 1.15; margin: 0; }
+  h1 { font-size: clamp(2.3rem, 5.5vw, 3.5rem); font-weight: 800; letter-spacing: -0.028em; }
+  h2 { font-size: 1.65rem; font-weight: 760; letter-spacing: -0.018em; }
+  h3 { font-size: 1.12rem; font-weight: 700; letter-spacing: -0.008em; margin: 2em 0 0.6em; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .cite {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* ============ header ============ */
+  header.hero { padding: 72px 0 34px; }
+  .hero-kicker { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  .hero-rule { border: 0; border-top: 1px solid var(--hair); margin: 26px 0 0; }
+  .dek {
+    font-size: 1.17rem;
+    color: var(--ink2);
+    max-width: 40em;
+    margin-top: 18px;
+    text-wrap: pretty;
+  }
+  .facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 26px; }
+  .fact { font-family: var(--mono); font-size: 0.76rem; color: var(--ink2); }
+  .fact b { color: var(--ink); font-weight: 600; }
+
+  /* ============ sticky nav ============ */
+  nav.toc {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--page) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--hair);
+  }
+  nav.toc .rail {
+    max-width: 1080px; margin: 0 auto; padding: 0 20px;
+    display: flex; gap: 2px; overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav.toc .rail::-webkit-scrollbar { display: none; }
+  nav.toc a {
+    font-family: var(--mono); font-size: 0.72rem;
+    color: var(--muted); text-decoration: none;
+    padding: 11px 9px 9px; border-bottom: 2px solid transparent;
+    white-space: nowrap; flex: 0 0 auto;
+  }
+  nav.toc a b { color: var(--ink2); font-weight: 600; }
+  nav.toc a.on { color: var(--ink); border-bottom-color: var(--mech-mark); }
+  nav.toc a.on b { color: var(--mech); }
+
+  /* ============ sections ============ */
+  section.chap { padding: 74px 0 10px; }
+  .chap-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 8px; }
+  .chap-no {
+    font-family: var(--mono); font-size: 0.78rem; font-weight: 600;
+    color: var(--mech); letter-spacing: 0.08em;
+    border: 1px solid var(--hair); border-radius: 4px;
+    background: var(--surface);
+    padding: 3px 8px;
+    transform: translateY(-3px);
+  }
+  .chap-sub { color: var(--ink2); margin: 6px 0 26px; font-size: 1.02rem; }
+
+  /* ============ callouts: the two voices ============ */
+  .note { border-radius: 8px; padding: 14px 18px 13px; margin: 22px 0; font-size: 0.95rem; }
+  .note .tag {
+    font-family: var(--mono); font-size: 0.66rem; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    display: block; margin-bottom: 5px;
+  }
+  .note p { margin: 0 0 0.5em; } .note p:last-child { margin-bottom: 0; }
+  .note.why { background: var(--why-wash); border-left: 3px solid var(--why-mark); }
+  .note.why .tag { color: var(--why); }
+  .note.mech { background: var(--mech-wash); border-left: 3px solid var(--mech-mark); }
+  .note.mech .tag { color: var(--mech); }
+  .note.fine { background: var(--well); border-left: 3px solid var(--baseline); }
+  .note.fine .tag { color: var(--muted); }
+
+  blockquote.vox {
+    margin: 24px 0; padding: 4px 0 4px 20px;
+    border-left: 3px solid var(--baseline);
+    color: var(--ink2); font-size: 1.0rem;
+  }
+  blockquote.vox p { margin-bottom: 0.35em; }
+  blockquote.vox .cite { display: block; margin-top: 6px; white-space: normal; }
+
+  /* ============ figure plates ============ */
+  figure.plate {
+    /* break out of the 780px prose column up to 1040px, staying centered */
+    width: min(1040px, calc(100vw - 40px));
+    margin: 34px calc((min(1040px, 100vw - 40px) - 100%) / -2);
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  section.chap, figure.plate { scroll-margin-top: 58px; }
+  .plate-bar {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
+    padding: 11px 18px;
+    border-bottom: 1px solid var(--hair);
+    background: var(--well);
+  }
+  .plate-bar .fig-id { font-family: var(--mono); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; color: var(--mech); }
+  .plate-bar .fig-title { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink2); text-align: right; }
+  .plate-body { padding: 22px; }
+  .plate-foot {
+    padding: 12px 18px; border-top: 1px solid var(--hair);
+    font-size: 0.85rem; color: var(--ink2);
+  }
+  .plate-foot b { color: var(--ink); }
+  .scrollx { overflow-x: auto; }
+
+  /* generic control row inside plates */
+  .ctl-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .ctl {
+    font-family: var(--mono); font-size: 0.74rem;
+    background: var(--surface); color: var(--ink2);
+    border: 1px solid var(--hair); border-radius: 999px;
+    padding: 7px 14px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .ctl:hover { border-color: var(--baseline); }
+  .ctl.on { background: var(--mech-mark); border-color: var(--mech-mark); color: #fff; }
+
+  /* ============ FIG 01 — context ledger ============ */
+  .ledger { display: grid; grid-template-columns: minmax(230px, 340px) 1fr; gap: 26px; align-items: start; }
+  @media (max-width: 720px) { .ledger { grid-template-columns: 1fr; } }
+  .cw {
+    border: 1px solid var(--baseline); border-radius: 10px;
+    background: var(--page);
+    padding: 12px; min-height: 320px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .cw-label { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding: 2px 4px 8px; }
+  .blk {
+    border-radius: 6px; padding: 8px 11px;
+    font-family: var(--mono); font-size: 0.72rem; line-height: 1.45;
+    border: 1px solid transparent;
+    opacity: 1; transition: opacity 0.3s, transform 0.3s;
+  }
+  .blk small { display: block; color: inherit; opacity: 0.75; font-size: 0.92em; }
+  .blk.sys { background: var(--well); color: var(--ink2); border-color: var(--hair); }
+  .blk.meta { background: var(--mech-wash); color: var(--mech); border-color: var(--mech-mark); border-style: dashed; }
+  .blk.body { background: var(--mech-wash); color: var(--mech); border-color: var(--mech-mark); }
+  .blk.ref { background: var(--why-wash); color: var(--why); border-color: var(--why-mark); }
+  .blk.ghost { opacity: 0; transform: translateY(-4px); pointer-events: none; }
+  .blk.hot { box-shadow: 0 0 0 2px var(--mech-mark); }
+  .blk.hot-why { box-shadow: 0 0 0 2px var(--why-mark); }
+  .cw-meter {
+    margin-top: auto; padding-top: 10px; border-top: 1px solid var(--hair);
+    font-family: var(--mono); font-size: 0.72rem; color: var(--ink2);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .cw-meter b { color: var(--ink); font-size: 1.05rem; font-weight: 650; }
+  .ledger-side h4 { font-size: 0.98rem; font-weight: 700; margin: 0 0 6px; }
+  .ledger-side .stage-note { font-size: 0.92rem; color: var(--ink2); margin-bottom: 14px; min-height: 5.2em; }
+  .disk {
+    border: 1px dashed var(--baseline); border-radius: 10px; padding: 12px 14px;
+    font-family: var(--mono); font-size: 0.72rem; color: var(--muted); line-height: 1.7;
+  }
+  .disk .dtitle { letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.64rem; margin-bottom: 6px; }
+  .disk .run { color: var(--good-text); }
+  .disk .idle { opacity: 0.75; }
+
+  /* ============ FIG 02 — anatomy tree ============ */
+  .anat { display: grid; grid-template-columns: minmax(250px, 380px) 1fr; gap: 24px; }
+  @media (max-width: 760px) { .anat { grid-template-columns: 1fr; } }
+  .tree { font-family: var(--mono); font-size: 0.76rem; line-height: 1.4; }
+  .tnode {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    background: none; border: 1px solid transparent; border-radius: 6px;
+    padding: 4px 8px; text-align: left; color: var(--ink2);
+  }
+  .tnode:hover { background: var(--well); }
+  .tnode.on { background: var(--mech-wash); border-color: var(--mech-mark); color: var(--ink); }
+  .tnode .tname { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tnode .tdir { color: var(--muted); }
+  .lv {
+    flex: 0 0 auto; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em;
+    border-radius: 4px; padding: 1.5px 5px; border: 1px solid;
+  }
+  .lv.l1 { color: var(--mech); border-color: var(--mech-mark); background: var(--mech-wash); }
+  .lv.l2 { color: var(--mech); border-color: var(--mech-mark); background: transparent; }
+  .lv.l3 { color: var(--why); border-color: var(--why-mark); background: var(--why-wash); }
+  .lv.ex { color: var(--good-text); border-color: var(--good); background: transparent; }
+  .lv.nl { color: var(--muted); border-color: var(--baseline); background: transparent; }
+  .anat-detail {
+    background: var(--well); border: 1px solid var(--hair); border-radius: 10px;
+    padding: 18px 20px; align-self: start; position: sticky; top: 56px;
+  }
+  .anat-detail .path { font-family: var(--mono); font-size: 0.74rem; color: var(--mech); word-break: break-all; }
+  .anat-detail .meta-line { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); margin: 6px 0 12px; }
+  .anat-detail .role { font-size: 0.93rem; color: var(--ink); margin-bottom: 10px; }
+  .anat-detail .teach { font-size: 0.88rem; color: var(--ink2); }
+  .anat-detail .teach::before { content: "why it lives here — "; font-family: var(--mono); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--why); display: block; margin-bottom: 4px; }
+
+  /* weight bar */
+  .wbar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin: 16px 0 8px; }
+  .wbar span { display: block; height: 100%; }
+  .wbar .w-l2 { background: var(--mech-mark); }
+  .wbar .w-l3 { background: var(--why-mark); margin-left: 2px; }
+  .wbar .w-ex { background: var(--baseline); margin-left: 2px; }
+  .wkey { display: flex; flex-wrap: wrap; gap: 4px 18px; font-family: var(--mono); font-size: 0.68rem; color: var(--ink2); }
+  .wkey i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; }
+
+  /* ============ FIG 03 — timeline ============ */
+  .tl { position: relative; padding: 8px 4px 2px; }
+  .tl-rail { display: flex; justify-content: space-between; position: relative; margin: 18px 0 6px; }
+  .tl-rail::before {
+    content: ""; position: absolute; left: 10px; right: 10px; top: 50%;
+    border-top: 1px solid var(--baseline);
+  }
+  .tl-dot {
+    position: relative; z-index: 1;
+    width: 21px; height: 21px; border-radius: 50%;
+    border: 2px solid var(--baseline); background: var(--surface);
+    padding: 0;
+  }
+  .tl-dot.major { border-color: var(--why-mark); }
+  .tl-dot.on { background: var(--mech-mark); border-color: var(--mech-mark); }
+  .tl-dot.major.on { background: var(--why-mark); border-color: var(--why-mark); }
+  .tl-dates { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 0.62rem; color: var(--muted); }
+  .tl-dates span { width: 21px; text-align: center; white-space: nowrap; }
+  .tl-card { margin-top: 20px; background: var(--well); border: 1px solid var(--hair); border-radius: 10px; padding: 16px 18px; }
+  .tl-card .tdate { font-family: var(--mono); font-size: 0.72rem; color: var(--mech); }
+  .tl-card h4 { margin: 4px 0 8px; font-size: 1rem; }
+  .tl-card p { font-size: 0.92rem; color: var(--ink2); margin: 0; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  @media (max-width: 680px) { .split { grid-template-columns: 1fr; } }
+  .half { border: 1px solid var(--hair); border-radius: 10px; padding: 16px 18px; background: var(--surface); }
+  .half h4 { font-size: 0.85rem; margin: 0 0 4px; }
+  .half .sub { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); margin-bottom: 12px; }
+  .half ul { margin: 0; padding: 0; list-style: none; font-size: 0.88rem; color: var(--ink2); }
+  .half li { padding: 4px 0 4px 18px; position: relative; }
+  .half li::before { position: absolute; left: 0; font-family: var(--mono); font-weight: 700; }
+  .half.rm li::before { content: "−"; color: var(--crit-text); }
+  .half.ad li::before { content: "+"; color: var(--good-text); }
+
+  /* ============ FIG 04 — the loop ============ */
+  .loop-strip { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 6px 2px 14px; }
+  .st {
+    flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+    background: var(--surface); border: 1px solid var(--hair); border-radius: 8px;
+    padding: 10px 11px; min-width: 92px; text-align: left;
+  }
+  .st .sno { font-family: var(--mono); font-size: 0.62rem; font-weight: 700; color: var(--muted); letter-spacing: 0.1em; }
+  .st .snm { font-size: 0.82rem; font-weight: 650; color: var(--ink); }
+  .st:hover { border-color: var(--baseline); }
+  .st.on { border-color: var(--mech-mark); background: var(--mech-wash); }
+  .st.on .sno { color: var(--mech); }
+  .st-arrow { flex: 0 0 auto; align-self: center; color: var(--baseline); padding: 0 3px; font-family: var(--mono); }
+  .loop-detail { background: var(--well); border: 1px solid var(--hair); border-radius: 10px; padding: 18px 20px; }
+  .loop-detail h4 { font-size: 1rem; margin: 0 0 8px; }
+  .loop-detail .body { font-size: 0.93rem; color: var(--ink2); }
+  .loop-detail .body p { margin: 0 0 0.7em; }
+  .loop-detail .body p:last-child { margin: 0; }
+  .loop-back { font-family: var(--mono); font-size: 0.7rem; color: var(--why); margin: 4px 2px 12px; }
+
+  /* ============ FIG 05 — benchmark ============ */
+  .bench { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .bench { grid-template-columns: 1fr; } }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start; }
+  .tile { border: 1px solid var(--hair); border-radius: 10px; padding: 12px 14px; background: var(--surface); }
+  .tile .tl-label { font-size: 0.78rem; color: var(--ink2); }
+  .tile .tl-val { font-size: 1.55rem; font-weight: 650; letter-spacing: -0.01em; }
+  .tile .tl-delta { font-family: var(--mono); font-size: 0.7rem; }
+  .tile .up-bad { color: var(--crit-text); }
+  .tile .up-good { color: var(--good-text); }
+  .chart-tip {
+    position: fixed; z-index: 90; pointer-events: none;
+    background: var(--ink); color: var(--page);
+    font-family: var(--mono); font-size: 0.7rem;
+    border-radius: 6px; padding: 6px 9px;
+    opacity: 0; transform: translateY(3px); transition: opacity 0.12s;
+    max-width: 260px; white-space: normal;
+  }
+  .chart-tip.show { opacity: 1; }
+  .anotes { margin-top: 18px; border-top: 1px solid var(--hair); padding-top: 12px; }
+  .anotes .ntitle { font-family: var(--mono); font-size: 0.64rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .anotes ul { margin: 0; padding-left: 18px; font-size: 0.85rem; color: var(--ink2); }
+  .anotes li { margin-bottom: 4px; }
+
+  /* ============ FIG 06 — sequence ============ */
+  .seq { display: grid; grid-template-columns: minmax(240px, 330px) 1fr; gap: 24px; }
+  @media (max-width: 760px) { .seq { grid-template-columns: 1fr; } }
+  .seq-steps { display: flex; flex-direction: column; gap: 6px; }
+  .sq {
+    display: flex; gap: 10px; align-items: baseline;
+    background: none; border: 1px solid transparent; border-radius: 8px;
+    padding: 8px 11px; text-align: left; color: var(--ink2); font-size: 0.85rem;
+  }
+  .sq:hover { background: var(--well); }
+  .sq.on { background: var(--mech-wash); border-color: var(--mech-mark); color: var(--ink); }
+  .sq .qno { font-family: var(--mono); font-size: 0.66rem; font-weight: 700; color: var(--muted); flex: 0 0 auto; }
+  .sq.on .qno { color: var(--mech); }
+  .seq-panel { display: flex; flex-direction: column; gap: 14px; }
+  .seq-diagram svg { width: 100%; height: auto; display: block; }
+  .seq-explain { background: var(--well); border: 1px solid var(--hair); border-radius: 10px; padding: 14px 17px; font-size: 0.9rem; color: var(--ink2); }
+  .seq-explain b { color: var(--ink); }
+  .seq-explain code { white-space: normal; word-break: break-all; }
+
+  /* ============ FIG 07 — optimization dashboard ============ */
+  .opt-iters { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+  .oit {
+    display: grid; grid-template-columns: 52px 96px 96px 1fr; gap: 10px; align-items: center;
+    background: var(--surface); border: 1px solid var(--hair); border-radius: 8px;
+    padding: 8px 12px; text-align: left;
+  }
+  @media (max-width: 640px) { .oit { grid-template-columns: 44px 84px 84px 1fr; } }
+  .oit:hover { border-color: var(--baseline); }
+  .oit.on { border-color: var(--mech-mark); background: var(--mech-wash); }
+  .oit .ono { font-family: var(--mono); font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+  .oit.on .ono { color: var(--mech); }
+  .oit .score { font-family: var(--mono); font-size: 0.7rem; font-variant-numeric: tabular-nums; border-radius: 5px; padding: 3px 7px; text-align: center; border: 1px solid var(--hair); color: var(--ink2); background: var(--page); }
+  .oit .desc-snip { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .oit .best-flag { font-family: var(--mono); font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em; color: var(--good-text); }
+  .opt-desc {
+    background: var(--well); border: 1px solid var(--hair); border-radius: 10px;
+    padding: 14px 17px; margin-bottom: 18px;
+  }
+  .opt-desc .dlabel { font-family: var(--mono); font-size: 0.64rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .opt-desc .dtext { font-family: var(--mono); font-size: 0.78rem; line-height: 1.6; color: var(--ink); }
+  .opt-desc .dnote { font-size: 0.85rem; color: var(--ink2); margin-top: 10px; }
+  table.qgrid { border-collapse: collapse; font-family: var(--mono); font-size: 0.68rem; }
+  table.qgrid th, table.qgrid td { border: 1px solid var(--hair); padding: 5px 8px; text-align: center; }
+  table.qgrid th { background: var(--well); color: var(--ink2); font-weight: 600; }
+  table.qgrid th.qlab { text-align: left; font-weight: 500; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  table.qgrid th.test-col { background: var(--mech-wash); color: var(--mech); }
+  table.qgrid td.test-cell { background: var(--mech-wash); }
+  table.qgrid .pos { border-left: 3px solid var(--good); }
+  table.qgrid .neg { border-left: 3px solid var(--crit); }
+  .qmark { font-variant-numeric: tabular-nums; }
+  .qmark.ok { color: var(--good-text); }
+  .qmark.bad { color: var(--crit-text); }
+  .qmark small { display: block; font-size: 0.82em; color: var(--muted); }
+  .opt-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--mono); font-size: 0.66rem; color: var(--ink2); margin: 12px 0 0; }
+  .opt-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; }
+  .opt-chart { margin-top: 22px; }
+  .opt-chart svg { width: 100%; height: auto; display: block; }
+
+  /* ============ FIG 08 — validator ============ */
+  .vlab { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .vlab { grid-template-columns: 1fr; } }
+  .vfield { margin-bottom: 16px; }
+  .vfield label { display: block; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .vfield input, .vfield textarea {
+    width: 100%; box-sizing: border-box;
+    font-family: var(--mono); font-size: 0.8rem; line-height: 1.55;
+    background: var(--page); color: var(--ink);
+    border: 1px solid var(--baseline); border-radius: 8px;
+    padding: 9px 12px;
+  }
+  .vfield textarea { min-height: 130px; resize: vertical; }
+  .vfield input:focus, .vfield textarea:focus { outline: 2px solid var(--mech-mark); outline-offset: 1px; border-color: var(--mech-mark); }
+  .vcount { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .vcount .over { color: var(--crit-text); font-weight: 700; }
+  .vchecks { display: flex; flex-direction: column; gap: 5px; }
+  .vc { display: flex; gap: 10px; align-items: baseline; font-size: 0.85rem; padding: 6px 10px; border-radius: 7px; }
+  .vc .vg { font-family: var(--mono); font-weight: 700; flex: 0 0 auto; width: 1em; }
+  .vc.pass { color: var(--ink2); } .vc.pass .vg { color: var(--good-text); }
+  .vc.fail { background: color-mix(in srgb, var(--crit) 8%, transparent); color: var(--ink); } .vc.fail .vg { color: var(--crit-text); }
+  .vc.warn { color: var(--ink2); } .vc.warn .vg { color: var(--why); }
+  .vc .src { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.06em; color: var(--muted); margin-left: auto; flex: 0 0 auto; }
+  .verdict { margin-top: 14px; border-top: 1px solid var(--hair); padding-top: 12px; font-family: var(--mono); font-size: 0.78rem; }
+  .verdict.ok { color: var(--good-text); } .verdict.bad { color: var(--crit-text); }
+
+  /* ============ tables ============ */
+  table.man { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+  table.man th, table.man td { border-bottom: 1px solid var(--hair); padding: 9px 12px; text-align: left; vertical-align: top; }
+  table.man th { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  table.man td.c { text-align: center; }
+  table.man .yes { color: var(--good-text); font-weight: 650; }
+  table.man .no { color: var(--muted); }
+  table.man .adapt { color: var(--why); font-size: 0.8rem; }
+  table.man td .fn { font-size: 0.78rem; color: var(--muted); display: block; }
+  table.man tr:hover td { background: var(--well); }
+  table.man td code { white-space: normal; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* tension cards */
+  .tension { border: 1px solid var(--hair); border-radius: 10px; margin: 18px 0; overflow: hidden; background: var(--surface); }
+  .tension .t-head { padding: 12px 18px 10px; font-weight: 650; font-size: 0.97rem; }
+  .tension .t-grid { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--hair); }
+  @media (max-width: 680px) { .tension .t-grid { grid-template-columns: 1fr; } }
+  .tension .t-cell { padding: 12px 18px; font-size: 0.87rem; color: var(--ink2); }
+  .tension .t-cell + .t-cell { border-left: 1px solid var(--hair); }
+  @media (max-width: 680px) { .tension .t-cell + .t-cell { border-left: 0; border-top: 1px solid var(--hair); } }
+  .tension .t-src { font-family: var(--mono); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .tension .t-cell:first-child .t-src { color: var(--mech); }
+  .tension .t-cell:last-child .t-src { color: var(--why); }
+  .tension .t-read { border-top: 1px solid var(--hair); padding: 10px 18px; font-size: 0.85rem; color: var(--ink2); background: var(--well); }
+  .tension .t-read b { color: var(--ink); }
+
+  /* doctrine */
+  .doct { counter-reset: d; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 26px; }
+  @media (max-width: 680px) { .doct { grid-template-columns: 1fr; } }
+  .doc-card { border: 1px solid var(--hair); border-radius: 10px; padding: 16px 18px; background: var(--surface); }
+  .doc-card h4 { font-size: 0.98rem; margin: 0 0 6px; display: flex; gap: 10px; align-items: baseline; }
+  .doc-card h4::before { counter-increment: d; content: counter(d, decimal-leading-zero); font-family: var(--mono); font-size: 0.7rem; color: var(--why); font-weight: 700; }
+  .doc-card p { font-size: 0.88rem; color: var(--ink2); margin: 0; }
+
+  footer.colophon { margin-top: 90px; border-top: 1px solid var(--hair); padding: 30px 0 60px; font-size: 0.85rem; color: var(--muted); }
+  footer.colophon a { color: var(--ink2); }
+  .src-list { font-family: var(--mono); font-size: 0.74rem; line-height: 2; margin: 12px 0 0; padding: 0; list-style: none; color: var(--ink2); word-break: break-all; }
+
+  /* directory listings */
+  pre.dirtree {
+    font-family: var(--mono); font-size: 0.74rem; line-height: 1.6;
+    background: var(--page); border: 1px solid var(--hair); border-radius: 10px;
+    padding: 16px 18px; overflow-x: auto; margin: 20px 0; color: var(--ink2);
+  }
+  pre.dirtree b { color: var(--ink); font-weight: 600; }
+  pre.dirtree .cm { color: var(--muted); }
+  pre.dirtree .hi { color: var(--mech); }
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-kicker">
+      <span class="eyebrow">Field manual · Anthropic agent skills</span>
+      <span class="eyebrow" style="color: var(--why)">annotated edition</span>
+    </div>
+    <h1>Inside <span style="font-family: var(--mono); font-weight: 700; letter-spacing: -0.01em;">skill&#8209;creator</span></h1>
+    <p class="dek">Anthropic ships a skill whose job is to build, measure, and iteratively improve other skills. This manual takes it apart: every file, every loop, every number — and the reasoning that put each one there.</p>
+    <div class="facts">
+      <span class="fact"><b>18</b> files · <b>~227&thinsp;KB</b></span>
+      <span class="fact"><b>1</b> SKILL.md · 485 lines · 5,166 words</span>
+      <span class="fact"><b>3</b> subagent roles</span>
+      <span class="fact"><b>8</b> Python scripts</span>
+      <span class="fact"><b>2</b> HTML review UIs</span>
+      <span class="fact">Apache-2.0</span>
+    </div>
+    <hr class="hero-rule">
+    <p style="margin-top: 20px; font-size: 0.9rem; color: var(--ink2);">
+      Two voices annotate everything here:
+      <span style="color: var(--mech); font-weight: 650;">blue is mechanism</span> — what the thing does and how —
+      and <span style="color: var(--why); font-weight: 650;">orange is rationale</span> — why it was built that way.
+      Sources are the skill's own files (cited as <span class="cite">SKILL.md:67</span>), the
+      <a href="https://github.com/anthropics/skills">anthropics/skills</a> git history, Anthropic's platform docs, and the
+      <a href="https://agentskills.io/specification">agentskills.io</a> open spec — all read in July&nbsp;2026.
+    </p>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <div class="rail">
+    <a href="#s01"><b>01</b> Substrate</a>
+    <a href="#s02"><b>02</b> Anatomy</a>
+    <a href="#s03"><b>03</b> Rewrite</a>
+    <a href="#s04"><b>04</b> Loop</a>
+    <a href="#s05"><b>05</b> Evals</a>
+    <a href="#s06"><b>06</b> Triggering</a>
+    <a href="#s07"><b>07</b> Guardrails</a>
+    <a href="#s08"><b>08</b> Surfaces</a>
+    <a href="#s09"><b>09</b> Tensions</a>
+    <a href="#s10"><b>10</b> Doctrine</a>
+  </div>
+</nav>
+
+<main>
+
+<!-- ============================================================ §01 -->
+<section class="chap" id="s01">
+  <div class="wrap">
+    <div class="chap-head"><span class="chap-no">§01</span><h2>The substrate: what a skill actually is</h2></div>
+    <p class="chap-sub">Before the creator, the created. A skill is a folder that teaches a model a job — priced in tokens.</p>
+
+    <p>A skill is a directory with one required file, <code>SKILL.md</code> — YAML frontmatter (<code>name</code>, <code>description</code>) above Markdown instructions — plus optional bundled resources: <code>scripts/</code> for executable code, <code>references/</code> for documentation loaded on demand, <code>assets/</code> for files used in outputs. That's the whole format. What makes it interesting is not the format but the <strong>economics</strong>: everything a model reads competes for a finite context window against the user's actual task.</p>
+
+    <p>Skills resolve this with <strong>progressive disclosure</strong> — a three-level loading scheme where cost scales with commitment. Metadata is the standing cost paid on every session; the body is paid only when the skill triggers; bundled resources are paid only if the work demands them. And executable scripts break the pattern entirely: <em>code executes without ever entering context</em>.</p>
+
+    <figure class="plate" id="fig01">
+      <div class="plate-bar"><span class="fig-id">FIG. 01</span><span class="fig-title">The context ledger — what loads when</span></div>
+      <div class="plate-body">
+        <div class="ctl-row" id="ledger-ctls" role="group" aria-label="Ledger stages"></div>
+        <div class="ledger">
+          <div class="cw" aria-live="polite">
+            <div class="cw-label">Context window</div>
+            <div class="blk sys">system prompt + conversation<small>always present, not the skill's doing</small></div>
+            <div class="blk meta" id="blk-meta">L1 · metadata — every installed skill's name + description<small>skill-creator's entry: 319 chars ≈ 80 tokens</small></div>
+            <div class="blk body ghost" id="blk-body">L2 · SKILL.md body<small>485 lines · 5,166 words ≈ 7k tokens</small></div>
+            <div class="blk ref ghost" id="blk-ref">L3 · references/schemas.md<small>1,365 words ≈ 1.8k tokens, read on demand</small></div>
+            <div class="cw-meter"><span>skill's share of context</span><b id="cw-total">~80 tokens</b></div>
+          </div>
+          <div class="ledger-side">
+            <h4 id="stage-title"></h4>
+            <p class="stage-note" id="stage-note"></p>
+            <div class="disk">
+              <div class="dtitle">Meanwhile, on disk (never loaded)</div>
+              <div id="disk-lines"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="plate-foot">Step through the stages. The punchline sits in stage 4: <b>a 401-line Python script does its work for zero tokens</b> — only its stdout comes back. Prose is priced; code is free.</figcaption>
+    </figure>
+
+    <div class="note mech">
+      <span class="tag">Mechanism · the three levels</span>
+      <p><strong>L1 — metadata, always in context.</strong> Name + description of every installed skill, ~100 tokens each. This is the <em>only</em> thing Claude sees when deciding whether to use a skill.</p>
+      <p><strong>L2 — body, on trigger.</strong> The SKILL.md Markdown loads when Claude invokes the skill. Guidance: under 500 lines <span class="cite">SKILL.md:96</span>; the platform docs and the agentskills.io spec say under ~5k tokens.</p>
+      <p><strong>L3 — resources, on demand.</strong> Reference files load only when a specific step needs them; scripts execute without loading; assets are consumed by tools, not read. Unlimited, because unpaid until used.</p>
+    </div>
+
+    <div class="note why">
+      <span class="tag">Rationale · why lazy-load prose</span>
+      <p>The context window is shared infrastructure — the older skill-creator called it "a public good," and the platform docs still do. A skill that loads 10k words up front taxes <em>every</em> task, including the ones it can't help with. Progressive disclosure lets an organization install dozens of skills at ~100 tokens apiece and pay full price only for the one that's actually doing work. It also explains an editorial rule you'll see throughout: all "when to use this" language belongs in the description (L1), because by the time L2 is loaded, the when-question has already been answered.</p>
+    </div>
+
+    <p>One more consequence of the levels worth internalizing: in stage 3 of the ledger above, the grader instructions (<code>agents/grader.md</code>) never touch the main context at all — they load inside a <em>subagent's</em> context. Skills that orchestrate subagents get a fourth, free tier: prose that's read by someone else.</p>
+  </div>
+</section>
+<!-- ============================================================ §02 -->
+<section class="chap" id="s02">
+  <div class="wrap">
+    <div class="chap-head"><span class="chap-no">§02</span><h2>The specimen: skill-creator's own anatomy</h2></div>
+    <p class="chap-sub">The best way to see the doctrine is to notice that skill-creator is built out of it.</p>
+
+    <p>Eighteen files, ~227&thinsp;KB. Only one of them — <code>SKILL.md</code>, 33&thinsp;KB — is ever loaded into the main context as instructions. Three agent playbooks and one schema reference sit behind on-demand reads. Everything else is machinery: eight Python scripts that execute, two HTML templates that get filled in and served, and a license that ships in the package. Click through the tree; each file is tagged with the disclosure level it lives at.</p>
+
+    <figure class="plate" id="fig02">
+      <div class="plate-bar"><span class="fig-id">FIG. 02</span><span class="fig-title">Anatomy explorer — 18 files by disclosure level</span></div>
+      <div class="plate-body">
+        <div class="anat">
+          <div class="tree" id="anat-tree" role="listbox" aria-label="skill-creator files"></div>
+          <div class="anat-detail" id="anat-detail"></div>
+        </div>
+        <div class="wbar" aria-hidden="true">
+          <span class="w-l2" style="width: 14.7%"></span>
+          <span class="w-l3" style="width: 17.1%"></span>
+          <span class="w-ex" style="width: 68.2%"></span>
+        </div>
+        <div class="wkey">
+          <span><i style="background: var(--mech-mark)"></i>SKILL.md — loads on trigger · 14.7%</span>
+          <span><i style="background: var(--why-mark)"></i>agents + references — on demand · 17.1%</span>
+          <span><i style="background: var(--baseline)"></i>scripts, templates, license — never load · 68.2%</span>
+        </div>
+      </div>
+      <figcaption class="plate-foot"><b>Two-thirds of this skill by weight never spends a token.</b> The single largest file — <code>viewer.html</code>, 45&thinsp;KB — is bigger than SKILL.md itself and is never read by the model at all: a Python script fills in its placeholders and hands it to a browser.</figcaption>
+    </figure>
+
+    <div class="note why">
+      <span class="tag">Rationale · determinism where it's cheap, judgment where it's needed</span>
+      <p>Notice <em>what</em> got turned into code. Statistics (<code>aggregate_benchmark.py</code>), zip packaging, YAML validation, subprocess orchestration, HTML generation — anything with one right answer is a script, because a script is deterministic, reusable, and token-free. What stayed prose is exactly what needs judgment: how to grade evidence, how to compare blind, how to interview a user. The skill draws the line between the two on empirical grounds (see §04's "bundle what every run reinvents") rather than taste.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ §03 -->
+<section class="chap" id="s03">
+  <div class="wrap">
+    <div class="chap-head"><span class="chap-no">§03</span><h2>From style guide to laboratory</h2></div>
+    <p class="chap-sub">skill-creator is on its second philosophy. The git history of anthropics/skills shows exactly when — and what — changed.</p>
+
+    <p>The first skill-creator (October 2025) was a <strong>writing guide</strong>: a 357-line document of authoring doctrine — "Concise is Key," "Set Appropriate Degrees of Freedom," what files not to create — plus an <code>init_skill.py</code> scaffolder and a packager. It told you how a good skill should <em>read</em>.</p>
+
+    <p>On <strong>2026-02-24</strong>, commit <code>3d59511</code> replaced it nearly wholesale. The scaffolder and the doctrine chapters vanished; in their place arrived subagent playbooks, an eval harness, a benchmark aggregator, a human review UI, and a description-optimization loop. The new question isn't "does this skill read well?" but <strong>"does this skill measurably beat not having it?"</strong> The theory didn't die — it migrated into Anthropic's platform best-practices docs. The skill became the laboratory.</p>
+
+    <figure class="plate" id="fig03">
+      <div class="plate-bar"><span class="fig-id">FIG. 03</span><span class="fig-title">Version history — every commit that touched skill-creator</span></div>
+      <div class="plate-body">
+        <div class="tl">
+          <div class="tl-rail" id="tl-rail"></div>
+          <div class="tl-dates" id="tl-dates"></div>
+          <div class="tl-card" id="tl-card"></div>
+        </div>
+        <div class="split">
+          <div class="half rm">
+            <h4>Removed in the rewrite</h4>
+            <div class="sub">357 lines · 2,537 words · didactic</div>
+            <ul>
+              <li><code>scripts/init_skill.py</code> — the template scaffolder</li>
+              <li><code>references/workflows.md</code>, <code>output-patterns.md</code></li>
+              <li>"Concise is Key" + "context window is a public good"</li>
+              <li>"Set Appropriate Degrees of Freedom" (high/medium/low)</li>
+              <li>"What Not to Include" (no README, CHANGELOG…)</li>
+              <li>The 6-step linear process (Understand → … → Package)</li>
+              <li><code>license:</code> frontmatter field</li>
+            </ul>
+          </div>
+          <div class="half ad">
+            <h4>Added in the rewrite</h4>
+            <div class="sub">485 lines · 5,166 words · empirical</div>
+            <ul>
+              <li><code>agents/</code> — grader, blind comparator, analyzer</li>
+              <li><code>eval-viewer/</code> — human review UI + server</li>
+              <li><code>scripts/run_eval.py</code>, <code>run_loop.py</code>, <code>improve_description.py</code></li>
+              <li><code>scripts/aggregate_benchmark.py</code>, <code>generate_report.py</code></li>
+              <li><code>references/schemas.md</code> — 8 JSON contracts</li>
+              <li>Baseline runs, variance stats, blind A/B comparison</li>
+              <li>A conversational first-person voice ("Cool? Cool.")</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <figcaption class="plate-foot">Select a commit. The orange dot is the philosophical break. A quieter one hides in <span class="mono">2026-03-06</span>: the optimizer stopped requiring an <code>ANTHROPIC_API_KEY</code> and now rides the session's own <code>claude&nbsp;-p</code> auth — the moment the whole loop became runnable by anyone with Claude Code, no setup.</figcaption>
+    </figure>
+
+    <div class="note why">
+      <span class="tag">Rationale · why the voice changed too</span>
+      <p>The rewrite didn't just change the machinery — it changed the register. The old version spoke in impersonal imperatives; the new one says "Cool? Cool." <span class="cite">SKILL.md:30</span>, jokes about plumbers opening terminals <span class="cite">SKILL.md:34</span>, and signs off with "Good luck!" <span class="cite">SKILL.md:485</span>. That's not decoration: the skill's own writing advice is to explain reasoning rather than issue commands, to use theory of mind, to trust that "today's LLMs are <em>smart</em>" <span class="cite">SKILL.md:302</span>. The document practices the style it prescribes — it is its own best example.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ §04 -->
+<section class="chap" id="s04">
+  <div class="wrap">
+    <div class="chap-head"><span class="chap-no">§04</span><h2>The core loop</h2></div>
+    <p class="chap-sub">Not a linear pipeline — a cycle with a human inside it, and an explicit instruction to join wherever the user already is.</p>
+
+    <p>SKILL.md states the loop twice — once at the top, once at the bottom, "repeating one more time … for emphasis" <span class="cite">SKILL.md:472</span>. Between drafts and packaging sits the part most skill-writing advice skips: <strong>run the skill against real prompts, with a baseline, and let the human judge the outputs before the model self-corrects</strong>. The stages below are clickable; the orange arc is the part that repeats.</p>
+
+    <figure class="plate" id="fig04">
+      <div class="plate-bar"><span class="fig-id">FIG. 04</span><span class="fig-title">The workflow — seven stations, one cycle</span></div>
+      <div class="plate-body">
+        <div class="loop-strip" id="loop-strip" role="group" aria-label="Workflow stations"></div>
+        <div class="loop-back" id="loop-back">&#8617; stations 5–7 repeat until the user is happy, the feedback comes back empty, or progress stalls <span class="cite">SKILL.md:318</span></div>
+        <div class="loop-detail" id="loop-detail"></div>
+      </div>
+      <figcaption class="plate-foot">The skill's first duty is diagnostic: "figure out where the user is in this process and then jump in" <span class="cite">SKILL.md:22</span>. Someone arriving with a finished draft starts at station 4. And the escape hatch is written in: if the user says "just vibe with me," the whole measurement apparatus stands down <span class="cite">SKILL.md:26</span>.</figcaption>
+    </figure>
+
+    <div class="note mech">
+      <span class="tag">Mechanism · who is this loop for?</span>
+      <p>The skill opens with audience calibration, not process. It warns that Claude's power "is inspiring plumbers to open up their terminals, parents and grandparents to google 'how to install npm'" <span class="cite">SKILL.md:34</span> — and then draws a precise jargon ladder: "evaluation" and "benchmark" are borderline-acceptable; "JSON" and "assertion" require "serious cues" that the user knows them before you may use them unexplained <span class="cite">SKILL.md:38-39</span>. A skill that will be operated <em>by a model on behalf of anyone</em> has to encode not just what to do but how to talk about it.</p>
+    </div>
+
+    <div class="note why">
+      <span class="tag">Rationale · why prompts come before assertions</span>
+      <p>Test cases are saved to <code>evals/evals.json</code> as <em>prompts only</em> — assertions are deliberately deferred to run-time <span class="cite">SKILL.md:145</span>. Two reasons. First, latency: the runs take minutes, so assertion-drafting is scheduled <em>into</em> the wait ("don't just wait for the runs to finish" <span class="cite">SKILL.md:201</span>). Second, epistemics: you write better checks after committing to what the test should prove, but before seeing what the model actually did — the same pre-registration logic experimental science uses.</p>
+    </div>
+  </div>
+</section>
+<!-- ============================================================ §05 -->
+<section class="chap" id="s05">
+  <div class="wrap">
+    <div class="chap-head"><span class="chap-no">§05</span><h2>The evaluation machinery</h2></div>
+    <p class="chap-sub">A subagent laboratory: parallel runs against a baseline, evidence-based grading, variance-aware aggregation — and a browser UI that puts the human before the model.</p>
+
+    <h3>The workspace</h3>
+    <p>Every run lands in a directory tree beside the skill — created lazily, iteration by iteration. Eval directories get <em>descriptive names</em>, not <code>eval-0</code>, so results stay legible <span class="cite">SKILL.md:188</span>:</p>
+
+    <pre class="dirtree"><b>my-skill-workspace/</b>            <span class="cm">← sibling of the skill directory</span>
+├── <b>skill-snapshot/</b>            <span class="cm">← frozen copy, when improving an existing skill</span>
+├── <b>iteration-1/</b>
+│   ├── <b>fill-w9-from-csv/</b>      <span class="cm">← one directory per test case, named for what it tests</span>
+│   │   ├── eval_metadata.json <span class="cm">← prompt + assertions</span>
+│   │   ├── <span class="hi">with_skill/</span>
+│   │   │   ├── outputs/       <span class="cm">← what the subagent produced (+ metrics.json)</span>
+│   │   │   ├── timing.json    <span class="cm">← tokens + wall-clock, captured from the task notification</span>
+│   │   │   └── grading.json   <span class="cm">← the grader's verdicts + evidence</span>
+│   │   └── <span class="hi">without_skill/</span>     <span class="cm">← the baseline: same prompt, no skill (or the old version)</span>
+│   ├── benchmark.json         <span class="cm">← aggregated stats (+ benchmark.md for humans)</span>
+│   └── feedback.json          <span class="cm">← the human's comments, from the review UI</span>
+└── <b>iteration-2/</b>               <span class="cm">← the loop, again</span></pre>
+
+    <div class="note mech">
+      <span class="tag">Mechanism · three rules that make the data trustworthy</span>
+      <p><strong>Spawn everything in the same turn.</strong> With-skill and baseline subagents launch together, "so it all finishes around the same time" <span class="cite">SKILL.md:171</span> — no drift between conditions, no forgotten baselines.</p>
+      <p><strong>Capture timing immediately.</strong> <code>total_tokens</code> and <code>duration_ms</code> arrive only in the task-completion notification and are "not persisted anywhere else" <span class="cite">SKILL.md:219</span> — miss it and the cost data is gone. Ephemeral telemetry gets written to <code>timing.json</code> the moment it appears.</p>
+      <p><strong>The baseline depends on intent.</strong> New skill → baseline is <em>no skill</em>. Improving an existing one → snapshot it first (<code>cp&nbsp;-r</code>) and run the <em>old version</em> as baseline <span class="cite">SKILL.md:185-186</span>. You can't claim improvement without the counterfactual.</p>
+    </div>
+
+    <h3>The grader: two jobs, one burden of proof</h3>
+    <p><code>agents/grader.md</code> gives the grading subagent a double mandate: <strong>grade the outputs, and critique the evals themselves</strong> — "a passing grade on a weak assertion is worse than useless — it creates false confidence" <span class="cite">grader.md:9</span>. The verdict rules are miniature jurisprudence:</p>
+
+    <blockquote class="vox">
+      <p>PASS: clear evidence the expectation is true AND the evidence reflects genuine task completion, not just surface-level compliance … When uncertain: the burden of proof to pass is on the expectation.</p>
+      <span class="cite">agents/grader.md:39, 99 — no partial credit; a right filename with wrong content is a FAIL</span>
+    </blockquote>
+
+    <p>Beyond the listed assertions, the grader extracts <em>claims</em> the executor made — factual ("the form has 12 fields"), process ("used pypdf"), quality ("all fields filled correctly") — and verifies each against the artifacts, flagging what can't be verified. It also reads <code>user_notes.md</code>, where the executor confesses uncertainties and workarounds. The output feeds back on the eval suite itself via <code>eval_feedback</code>: the standard for a suggestion is whether the eval's author would say "good catch" <span class="cite">grader.md:79</span> — the goal is <em>discriminating</em> assertions, ones that "pass when the skill genuinely succeeds and fail when it doesn't."</p>
+
+    <div class="note fine">
+      <span class="tag">Fine print · exact field names or the viewer shows zeros</span>
+      <p><code>grading.json</code> expectations must use <code>text</code> / <code>passed</code> / <code>evidence</code> — not <code>name</code>/<code>met</code>/<code>details</code> <span class="cite">SKILL.md:225</span>. Likewise <code>benchmark.json</code> needs <code>configuration</code> (not <code>config</code>) with <code>pass_rate</code> nested under <code>result</code> <span class="cite">schemas.md:305</span>. The schemas file exists precisely because a model regenerating these files from memory will drift; the viewer reads field names literally. Loose prose upstream, rigid contracts downstream.</p>
+    </div>
+
+    <h3>Aggregation: variance or it didn't happen</h3>
+    <p><code>aggregate_benchmark.py</code> walks every <code>grading.json</code>, computes mean, <em>sample</em> standard deviation (n−1), min and max for pass rate, wall-clock and tokens per configuration, and emits the delta. Three runs per configuration is the default — enough to expose flakiness, cheap enough to actually run. The chart below renders the exact worked example from <code>references/schemas.md</code>:</p>
+
+    <figure class="plate" id="fig05">
+      <div class="plate-bar"><span class="fig-id">FIG. 05</span><span class="fig-title">benchmark.json, rendered — with skill vs. baseline</span></div>
+      <div class="plate-body">
+        <div class="bench">
+          <div>
+            <div id="bench-chart"></div>
+          </div>
+          <div class="tiles">
+            <div class="tile">
+              <div class="tl-label">Pass rate delta</div>
+              <div class="tl-val num" style="color: var(--good-text)">+50<span style="font-size:0.6em">&thinsp;pts</span></div>
+              <div class="tl-delta">85% ± 5 vs 35% ± 8</div>
+            </div>
+            <div class="tile">
+              <div class="tl-label">Runs per config</div>
+              <div class="tl-val num">3</div>
+              <div class="tl-delta">mean ± stddev (n−1)</div>
+            </div>
+            <div class="tile">
+              <div class="tl-label">Time cost</div>
+              <div class="tl-val num">+13<span style="font-size:0.6em">&thinsp;s</span></div>
+              <div class="tl-delta up-bad">45s vs 32s mean</div>
+            </div>
+            <div class="tile">
+              <div class="tl-label">Token cost</div>
+              <div class="tl-val num">+1,700</div>
+              <div class="tl-delta up-bad">3,800 vs 2,100 mean</div>
+            </div>
+          </div>
+        </div>
+        <div class="anotes">
+          <div class="ntitle">Analyst notes — the patterns aggregates hide</div>
+          <ul>
+            <li>"Assertion 'Output is a PDF file' passes 100% in both configurations — may not differentiate skill value"</li>
+            <li>"Eval 3 shows high variance (50% ± 40%) — may be flaky or model-dependent"</li>
+            <li>"Without-skill runs consistently fail on table extraction expectations"</li>
+            <li>"Skill adds 13s average execution time but improves pass rate by 50%"</li>
+          </ul>
+        </div>
+      </div>
+      <figcaption class="plate-foot">A skill is allowed to cost time and tokens — the question the benchmark answers is whether the pass-rate delta <b>buys enough correctness to justify it</b>. The whiskers are the point: a +50pt delta with overlapping spreads would mean nothing.</figcaption>
+    </figure>
+
+    <div class="note mech">
+      <span class="tag">Mechanism · the analyzer's five-way assertion taxonomy</span>
+      <p>After aggregation, an analyst pass (<code>agents/analyzer.md</code>) classifies every assertion across all runs: <strong>always passes in both configs</strong> → non-discriminating, dead weight; <strong>always fails in both</strong> → broken or beyond the model's capability; <strong>passes with skill, fails without</strong> → this is where the skill earns its keep; <strong>fails with skill, passes without</strong> → the skill is actively hurting; <strong>highly variable</strong> → flaky eval or non-deterministic behavior. In benchmark mode the analyzer is explicitly forbidden from suggesting skill improvements — observation and repair are separate steps with separate mandates <span class="cite">analyzer.md:271</span>.</p>
+    </div>
+
+    <h3>The viewer: human judgment, front of the line</h3>
+    <p>Once runs are graded and aggregated, <code>eval-viewer/generate_review.py</code> assembles a self-contained review page — outputs embedded as base64, spreadsheets rendered as tables, PDFs inline — and serves it on port 3117 (or writes a static file for headless environments). Two tabs: <strong>Outputs</strong>, one test case at a time with a feedback box that autosaves; <strong>Benchmark</strong>, the quantitative story. From iteration 2 on, it shows the previous iteration's output and the reviewer's previous comments beside the new result. Empty feedback is a signal too: "the user thought it was fine" <span class="cite">SKILL.md:282</span>.</p>
+
+    <p>This is the one place the otherwise-conversational SKILL.md resorts to capitals: "GENERATE THE EVAL VIEWER <em>BEFORE</em> evaluating inputs yourself … Sorry in advance but I'm gonna go all caps here" <span class="cite">SKILL.md:451</span> — a self-aware exception to its own anti-caps rule, deployed because field experience showed Claude in Cowork skipping the human review and self-correcting instead. The apology is doing real work: it marks the rule as hard-won, not stylistic.</p>
+
+    <div class="note why">
+      <span class="tag">Rationale · why a human gate at all?</span>
+      <p>The model wrote the skill, ran the skill, and graded the skill — every quality signal so far is self-referential. The viewer breaks the circle. It's also deliberately <em>not</em> bespoke: "use generate_review.py … there's no need to write custom HTML" <span class="cite">SKILL.md:249</span>, because a standard UI with stable file contracts (feedback.json) is something the next iteration can read programmatically.</p>
+    </div>
+
+    <h3>Advanced: the blind protocol</h3>
+    <p>For "is the new version actually better?" questions, a stricter instrument exists. The <strong>blind comparator</strong> receives two outputs labeled A and B — it is never told which skill produced which — builds a task-specific rubric (content: correctness, completeness, accuracy; structure: organization, formatting, usability; 1–5 each, scaled to a 1–10 overall), and must pick a winner; "ties should be rare" <span class="cite">comparator.md:85</span>. Assertion pass-rates are explicitly demoted to secondary evidence. Only after the verdict does the <strong>post-hoc analyzer</strong> unblind: it reads both skills and both transcripts, scores instruction-following 1–10, and produces improvement suggestions prioritized by a single test — <em>would this change have flipped the outcome?</em> <span class="cite">analyzer.md:85</span></p>
+
+    <div class="note fine">
+      <span class="tag">Fine print</span>
+      <p>Blind comparison requires subagents and is labeled optional: "most users won't need it. The human review loop is usually sufficient" <span class="cite">SKILL.md:329</span>. The separation of concerns is the transferable idea: <strong>judge quality blind, diagnose causes unblinded</strong> — the same reviewer can't do both without the verdict contaminating the diagnosis.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ §06 -->
+<section class="chap" id="s06">
+  <div class="wrap">
+    <div class="chap-head"><span class="chap-no">§06</span><h2>Triggering, and the description optimizer</h2></div>
+    <p class="chap-sub">The description is ~100 tokens standing between a skill and every task it will never be asked to do. skill-creator treats it as a measurable ML artifact — with a train/test split.</p>
+
+    <p>Recall the economics: at decision time, Claude sees <em>only</em> name + description in its <code>available_skills</code> list. And there's a documented bias to fight — "currently Claude has a tendency to 'undertrigger' skills" <span class="cite">SKILL.md:67</span> — so descriptions should be written a little <strong>"pushy"</strong>. The skill's own example:</p>
+
+    <blockquote class="vox">
+      <p><strong>Before:</strong> "How to build a simple fast dashboard to display internal Anthropic data."</p>
+      <p><strong>After:</strong> "… Make sure to use this skill whenever the user mentions dashboards, data visualization, internal metrics, or wants to display any kind of company data, even if they don't explicitly ask for a 'dashboard.'"</p>
+      <span class="cite">SKILL.md:67 — the after-version names intents and phrasings, not features</span>
+    </blockquote>
+
+    <p>There's a second, subtler mechanic: <strong>triggering scales with task complexity</strong>. "Claude only consults skills for tasks it can't easily handle on its own — simple, one-step queries like 'read this PDF' may not trigger a skill even if the description matches perfectly" <span class="cite">SKILL.md:398</span>. A perfect description cannot make a trivial query trigger; eval queries must be substantive enough that consulting a skill would actually help.</p>
+
+    <h3>Designing the trigger eval: near-misses are the test</h3>
+    <p>The optimizer starts from ~20 human-approved queries — 8–10 that <em>should</em> trigger, 8–10 that should <em>not</em>. The guidance on realism is unusually concrete: queries need "file paths, personal context … column names and values, company names … A little bit of backstory. Some might be in lowercase or contain abbreviations or typos" <span class="cite">SKILL.md:348</span>. The canonical good example, verbatim:</p>
+
+    <blockquote class="vox">
+      <p>"ok so my boss just sent me this xlsx file (its in my downloads, called something like 'Q4 sales final FINAL v2.xlsx') and she wants me to add a column that shows the profit margin as a percentage. The revenue is in column C and costs are in column D i think"</p>
+      <span class="cite">SKILL.md:352 — versus the useless "Format this data"</span>
+    </blockquote>
+
+    <div class="note why">
+      <span class="tag">Rationale · why the negatives matter more</span>
+      <p>"'Write a fibonacci function' as a negative test for a PDF skill is too easy — it doesn't test anything" <span class="cite">SKILL.md:358</span>. The valuable negatives are <strong>near-misses</strong>: adjacent domains, shared keywords, cases another tool should win. A description that only clears obvious negatives will false-trigger in production, silently taxing unrelated tasks with a 7k-token body load. The human signs off on the eval set through a purpose-built editing UI (<code>assets/eval_review.html</code>) before any optimization runs — "bad eval queries lead to bad descriptions" <span class="cite">SKILL.md:373</span>.</p>
+    </div>
+
+    <h3>How a trigger is actually measured</h3>
+    <p>There is no triggering API to query — so <code>run_eval.py</code> manufactures one out of Claude Code itself. Step through the probe:</p>
+
+    <figure class="plate" id="fig06">
+      <div class="plate-bar"><span class="fig-id">FIG. 06</span><span class="fig-title">One trigger probe — run_eval.py's decoy protocol</span></div>
+      <div class="plate-body">
+        <div class="seq">
+          <div class="seq-steps" id="seq-steps"></div>
+          <div class="seq-panel">
+            <div class="seq-diagram" id="seq-diagram"></div>
+            <div class="seq-explain" id="seq-explain"></div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="plate-foot">Each of the ~20 queries gets <b>3 independent probes</b> (fresh <code>claude&nbsp;-p</code> process each, 10 in parallel, 30s timeout). Trigger rate ≥ 0.5 counts as "triggered." A should-trigger query passes at rate ≥ 0.5; a should-not passes below it.</figcaption>
+    </figure>
+
+    <div class="note mech">
+      <span class="tag">Mechanism · three details worth stealing</span>
+      <p><strong>The UUID suffix.</strong> The decoy is named <code>&lt;skill&gt;-skill-&lt;8-hex&gt;</code>, so a substring match in the streamed tool-call JSON is unambiguous — it can never collide with a real installed skill.</p>
+      <p><strong>Early verdict from the stream.</strong> With <code>--include-partial-messages</code>, the probe watches raw stream events: the first <code>content_block_start</code> naming any tool other than <code>Skill</code>/<code>Read</code> is an instant <em>no</em>; the decoy's name appearing in accumulated <code>input_json_delta</code> fragments is an instant <em>yes</em> — before the tool even executes. Verdicts in seconds, not tool-run minutes.</p>
+      <p><strong>The <code>CLAUDECODE</code> strip.</strong> The env var guarding against nested interactive sessions is removed for the subprocess — the guard exists for terminal conflicts, and a programmatic probe has none <span class="cite">run_eval.py:80-83</span>.</p>
+    </div>
+
+    <h3>The optimization loop: gradient descent by prompt</h3>
+    <p><code>run_loop.py</code> wraps the probe in a five-iteration improvement cycle with genuine ML hygiene. The eval set is split <strong>60% train / 40% held-out test</strong>, stratified by should-trigger, seed 42. Each iteration: measure the current description on everything → if any train query fails, ask Claude (via <code>claude&nbsp;-p</code>) for a better description → repeat. The improvement prompt sees the failures, the false triggers, and every previous attempt with scores ("do NOT repeat these — try something structurally different") — but <strong>test results are stripped from what the improver sees</strong>, and the final winner is chosen by <em>test</em> score, "to avoid overfitting" <span class="cite">SKILL.md:394</span>. Below is a representative run for an invented <code>pdf-form-filler</code> skill — click through the iterations:</p>
+
+    <figure class="plate" id="fig07">
+      <div class="plate-bar"><span class="fig-id">FIG. 07</span><span class="fig-title">run_loop.py — a worked optimization run (mock data, real mechanics)</span></div>
+      <div class="plate-body">
+        <div class="opt-iters" id="opt-iters" role="group" aria-label="Iterations"></div>
+        <div class="opt-desc" id="opt-desc"></div>
+        <div class="scrollx">
+          <table class="qgrid" id="opt-grid"></table>
+        </div>
+        <div class="opt-legend">
+          <span><i style="background: var(--good)"></i>should trigger</span>
+          <span><i style="background: var(--crit)"></i>should NOT trigger</span>
+          <span><i style="background: var(--mech-wash); border: 1px solid var(--mech-mark)"></i>held-out test column</span>
+          <span>cell = pass/fail · trigger count over 3 probes</span>
+        </div>
+        <div class="opt-chart" id="opt-chart"></div>
+      </div>
+      <figcaption class="plate-foot">The teaching moment is iteration 4: train hits 12/12 and the loop exits "all_passed" — but the enumerating description regressed on held-out queries (a "create a form from scratch" near-miss now false-triggers). <b>The loop ships iteration 3</b>, the test-score winner. Train score selects; test score decides.</figcaption>
+    </figure>
+
+    <div class="note why">
+      <span class="tag">Rationale · the anti-overfitting quartet</span>
+      <p>Four independent defenses against the same failure: (1) the <strong>holdout split</strong> — 40% of queries never influence improvement; (2) <strong>blinding</strong> — test scores are filtered out of the improver's prompt (<code>run_loop.py:195</code> strips every <code>test_*</code> key); (3) <strong>the prompt itself</strong> — it forbids "an ever-expanding list of specific queries" and demands generalizing "to broader categories of user intent," partly because the description is injected into <em>every</em> conversation and bloat is a standing tax <span class="cite">improve_description.py:127-132</span>; (4) <strong>selection by test</strong>. The same discipline the skill preaches for skill bodies — generalize from feedback, don't patch the example — implemented mechanically for descriptions.</p>
+    </div>
+
+    <div class="note fine">
+      <span class="tag">Fine print · the budget and the safety net</span>
+      <p>Descriptions target 100–200 words with a hard 1024-character ceiling (over it, truncation). If the improver overshoots anyway, <code>improve_description.py</code> makes one fresh rewrite call quoting the too-long attempt <span class="cite">improve_description.py:163</span>. The loop is told to test with the session's own model ID "so the triggering test matches what the user actually experiences" <span class="cite">SKILL.md:390</span> — trigger behavior is model-dependent, and optimizing against the wrong model measures the wrong thing. A live HTML report (auto-refreshing every 5s) opens the moment the loop starts, so the human watches iterations land in real time.</p>
+    </div>
+  </div>
+</section>
+<!-- ============================================================ §07 -->
+<section class="chap" id="s07">
+  <div class="wrap">
+    <div class="chap-head"><span class="chap-no">§07</span><h2>Guardrails: validation and packaging</h2></div>
+    <p class="chap-sub">The prose is permissive; the pipeline is not. Before anything ships, quick_validate.py gets a veto.</p>
+
+    <p><code>package_skill.py</code> refuses to zip anything that fails validation. The rules below are the real ones from <code>quick_validate.py</code> — plus two that exist only in the platform docs, flagged separately. Try them live; the form starts deliberately broken:</p>
+
+    <figure class="plate" id="fig08">
+      <div class="plate-bar"><span class="fig-id">FIG. 08</span><span class="fig-title">Frontmatter validator — quick_validate.py, reimplemented live</span></div>
+      <div class="plate-body">
+        <div class="vlab">
+          <div>
+            <div class="vfield">
+              <label for="v-name">name</label>
+              <input id="v-name" type="text" spellcheck="false" autocomplete="off" value="Claude_PDF_Helper">
+              <div class="vcount" id="v-name-count"></div>
+            </div>
+            <div class="vfield">
+              <label for="v-desc">description</label>
+              <textarea id="v-desc" spellcheck="false">A skill for &lt;PDF&gt; form filling. This skill does form filling when the user provides a PDF.</textarea>
+              <div class="vcount" id="v-desc-count"></div>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--muted); margin: 0;">Allowed frontmatter keys (anything else is a hard failure): <code>name</code> <code>description</code> <code>license</code> <code>allowed-tools</code> <code>metadata</code> <code>compatibility</code></p>
+          </div>
+          <div>
+            <div class="vchecks" id="v-checks"></div>
+            <div class="verdict" id="v-verdict"></div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="plate-foot">Checks labeled <b>validator</b> are enforced by <code>quick_validate.py</code>; <b>docs</b> rules live only in Anthropic's platform documentation; <b>advisory</b> comes from the optimizer's own prompt. The gaps between the three tiers are themselves a finding — see §09.</figcaption>
+    </figure>
+
+    <h3>The one-SKILL.md rule</h3>
+    <p>The local validator adds a check absent from the upstream repo (the installed copy is <em>ahead</em> of GitHub here): a package must contain exactly one <code>SKILL.md</code>, at the root. The in-code rationale: "The Skills API and claude.ai accept exactly one per skill — only Claude Code's filesystem loads nested ones" <span class="cite">quick_validate.py:38-42</span>. And because failure modes deserve exits, the error message ships three remedies: separate skills → package individually or build a plugin; supporting docs → rename to <code>references/&lt;topic&gt;.md</code>; swept in by mistake → package only the one directory.</p>
+
+    <h3>What a .skill file is</h3>
+    <p>A zip with a different extension. <code>package_skill.py</code> validates, then deflate-compresses the folder, excluding <code>__pycache__</code>, <code>node_modules</code>, <code>*.pyc</code> and <code>.DS_Store</code> at any depth — and <code>evals/</code> only at the skill root <span class="cite">package_skill.py:19-24</span>. That last nuance is deliberate: your test suite stays with the source, but doesn't ship to every consumer. Presenting the file is itself gated on capability: package-and-present only runs if a file-delivery tool exists in the session (<code>present_files</code>, or <code>SendUserFile</code> in Cowork), where the file card can show a <strong>Save skill</strong> button that installs directly into the user's profile <span class="cite">SKILL.md:410-416</span>.</p>
+
+    <div class="note fine">
+      <span class="tag">Fine print · two frontmatter dialects</span>
+      <p>The validator enforces the <em>open-standard</em> field set (agentskills.io) — the one uploads to claude.ai and the Skills API accept. Claude Code's own loader understands many more fields (<code>when_to_use</code>, <code>disable-model-invocation</code>, <code>user-invocable</code>, <code>model</code>, <code>context:&nbsp;fork</code>, <code>hooks</code>, …), every one of which <code>quick_validate.py</code> would reject as an "unexpected key." The validator is aligned to the portable format, not the platform's superset — write a Claude-Code-specific skill and the packager becomes your adversary.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ §08 -->
+<section class="chap" id="s08">
+  <div class="wrap">
+    <div class="chap-head"><span class="chap-no">§08</span><h2>One skill, three surfaces</h2></div>
+    <p class="chap-sub">The last third of SKILL.md is environment adaptation — the same loop degrading gracefully as capabilities disappear.</p>
+
+    <p>skill-creator runs wherever skills run, but its machinery leans on capabilities that differ by surface: subagents for parallel runs, a browser for the review UI, the <code>claude</code> CLI for trigger probes. Rather than pretend uniformity, SKILL.md ships explicit per-surface protocols <span class="cite">SKILL.md:420-455</span>:</p>
+
+    <figure class="plate">
+      <div class="plate-bar"><span class="fig-id">FIG. 09</span><span class="fig-title">Capability matrix — what survives where</span></div>
+      <div class="plate-body scrollx">
+        <table class="man">
+          <thead>
+            <tr><th>Capability</th><th>Claude Code</th><th>Claude.ai</th><th>Cowork (remote)</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Parallel test runs via subagents</td>
+              <td class="c yes">✓</td>
+              <td class="c"><span class="adapt">adapted</span><span class="fn">run each case yourself, serially — "less rigorous … the human review step compensates"</span></td>
+              <td class="c yes">✓<span class="fn">serial fallback if timeouts bite</span></td>
+            </tr>
+            <tr>
+              <td>Baseline runs + quantitative benchmark</td>
+              <td class="c yes">✓</td>
+              <td class="c no">skip<span class="fn">baselines aren't meaningful without independent runs</span></td>
+              <td class="c yes">✓</td>
+            </tr>
+            <tr>
+              <td>Review viewer</td>
+              <td class="c yes">server<span class="fn">port 3117, browser opens</span></td>
+              <td class="c"><span class="adapt">in-chat</span><span class="fn">show outputs in conversation; save files to disk</span></td>
+              <td class="c"><span class="adapt">static</span><span class="fn">--static HTML; feedback.json arrives as a download</span></td>
+            </tr>
+            <tr>
+              <td>Description optimization (<code>claude -p</code>)</td>
+              <td class="c yes">✓</td>
+              <td class="c no">—<span class="fn">no CLI available</span></td>
+              <td class="c yes">✓<span class="fn">but "save it until you've fully finished making the skill"</span></td>
+            </tr>
+            <tr>
+              <td>Blind comparison</td>
+              <td class="c yes">✓</td>
+              <td class="c no">—</td>
+              <td class="c yes">✓</td>
+            </tr>
+            <tr>
+              <td>Packaging → <code>.skill</code></td>
+              <td class="c yes">✓</td>
+              <td class="c yes">✓<span class="fn">user downloads the file</span></td>
+              <td class="c yes">✓<span class="fn">SendUserFile card with a Save-skill button</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <figcaption class="plate-foot">The invariant across all three columns: <b>draft → test → human review → improve</b>. Machinery degrades; the loop and the human gate never do. Updating an existing skill adds its own rules everywhere: keep the original name (no <code>-v2</code>), and copy to a writable location before editing — installed paths may be read-only.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================================================ §09 -->
+<section class="chap" id="s09">
+  <div class="wrap">
+    <div class="chap-head"><span class="chap-no">§09</span><h2>Tensions in the doctrine</h2></div>
+    <p class="chap-sub">Read skill-creator against Anthropic's own docs and spec, and the disagreements become the most instructive part.</p>
+
+    <p>None of these are bugs, exactly. They're strata — a fast-moving skill, slower-moving docs, and an externalized spec, each written at a different moment of belief. Five worth knowing:</p>
+
+    <div class="tension">
+      <div class="t-head">1 · Should instructions shout?</div>
+      <div class="t-grid">
+        <div class="t-cell"><span class="t-src">skill-creator</span>"If you find yourself writing ALWAYS or NEVER in all caps … that's a yellow flag — reframe and explain the reasoning … more humane, powerful, and effective." <span class="cite">SKILL.md:302</span></div>
+        <div class="t-cell"><span class="t-src">platform best-practices</span>Recommends "stronger language such as 'MUST filter' instead of 'always filter'" when compliance matters.</div>
+      </div>
+      <div class="t-read"><b>Read:</b> a live philosophical split about steering models — explanation vs. emphasis. skill-creator bets on theory of mind, then breaks its own rule exactly once, with an apology, where field data showed explanation failing (§05's viewer rule). Emphasis as the exception is perhaps the actual doctrine.</div>
+    </div>
+
+    <div class="tension">
+      <div class="t-head">2 · How big may a body be?</div>
+      <div class="t-grid">
+        <div class="t-cell"><span class="t-src">docs + agentskills.io spec</span>SKILL.md body under ~5k tokens (older skill-creator: "&lt;5k words").</div>
+        <div class="t-cell"><span class="t-src">skill-creator today</span>"&lt;500 lines ideal" and "feel free to go longer if needed" <span class="cite">SKILL.md:90-93</span> — while itself weighing 5,166 words ≈ 7k tokens, the largest SKILL.md in the anthropics/skills repo.</div>
+      </div>
+      <div class="t-read"><b>Read:</b> the ceiling loosened as models got better at long instructions — and skill-creator, a genuinely complex workflow, spends its budget deliberately. The 485-line count still slips under its own 500-line rule. Lines were chosen over words; both are proxies for tokens.</div>
+    </div>
+
+    <div class="tension">
+      <div class="t-head">3 · When does a reference file need a table of contents?</div>
+      <div class="t-grid">
+        <div class="t-cell"><span class="t-src">docs + spec</span>Over 100 lines → include a ToC.</div>
+        <div class="t-cell"><span class="t-src">skill-creator</span>Over 300 lines → include a ToC <span class="cite">SKILL.md:98</span>.</div>
+      </div>
+      <div class="t-read"><b>Read:</b> a 3× disagreement on the same rule — strong evidence these thresholds are heuristics, not measurements. The shared underlying claim is the one to keep: a model should be able to grep a big reference instead of reading it linearly.</div>
+    </div>
+
+    <div class="tension">
+      <div class="t-head">4 · Does eval tooling exist?</div>
+      <div class="t-grid">
+        <div class="t-cell"><span class="t-src">platform docs</span>"There is not currently a built-in way to run these evaluations. Users can create their own evaluation system."</div>
+        <div class="t-cell"><span class="t-src">skill-creator, since 2026-02</span>Ships a complete harness: baseline runs, grading contracts, variance stats, blind A/B, trigger optimization.</div>
+      </div>
+      <div class="t-read"><b>Read:</b> docs lag the artifact. The best current documentation of Anthropic's skill-evaluation methodology isn't a docs page — it's this skill's source tree. (The docs' related claim that "you don't need a 'writing skills' skill" sits in the same drawer.)</div>
+    </div>
+
+    <div class="tension">
+      <div class="t-head">5 · What is a valid skill, portable vs. local?</div>
+      <div class="t-grid">
+        <div class="t-cell"><span class="t-src">validator / open standard</span>Six allowed frontmatter keys; name ≤64 chars kebab-case; description ≤1024, no angle brackets; one SKILL.md per package. Docs add: no "anthropic"/"claude" in names; gerund naming (<code>processing-pdfs</code>) recommended.</div>
+        <div class="t-cell"><span class="t-src">Claude Code loader</span>Everything optional (name defaults to the directory), a dozen extra fields, nested skills load fine, live-reloads on edit — and the flagship repo ignores the gerund advice (<code>skill-creator</code>, <code>mcp-builder</code>, <code>pdf</code>).</div>
+      </div>
+      <div class="t-read"><b>Read:</b> two dialects with one syntax. The strict rules are <em>upload-time</em> rules — the moment a skill leaves your machine, the open standard is the contract. quick_validate is best understood as a portability linter.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ §10 -->
+<section class="chap" id="s10">
+  <div class="wrap">
+    <div class="chap-head"><span class="chap-no">§10</span><h2>The distilled doctrine</h2></div>
+    <p class="chap-sub">Strip the machinery away and skill-creator is eight convictions about building instruments for models.</p>
+
+    <div class="doct">
+      <div class="doc-card"><h4>Prose is priced; code is free</h4><p>Load instructions lazily in three tiers; push anything deterministic into scripts that execute without ever entering context. Two-thirds of skill-creator's own mass never costs a token.</p></div>
+      <div class="doc-card"><h4>The description is the product</h4><p>~100 tokens decide every invocation. Put all "when to use" language there, write it pushy against a known undertriggering bias, and optimize it empirically — with a holdout set.</p></div>
+      <div class="doc-card"><h4>Explain why; shout almost never</h4><p>Rigid MUSTs are a yellow flag; reasoned instructions travel further with a model that has theory of mind. Reserve capitals for rules that field data proved explanation couldn't carry — and apologize when you use them.</p></div>
+      <div class="doc-card"><h4>No claim without a baseline</h4><p>Run with-skill and without-skill in the same turn, three runs each, report mean ± stddev. A skill that can't beat its own absence is a tax, not a tool.</p></div>
+      <div class="doc-card"><h4>The human reviews before the model corrects</h4><p>Self-graded quality is circular. Get outputs in front of a person first — through a standard viewer with stable file contracts — then let the model act on their feedback.</p></div>
+      <div class="doc-card"><h4>Generalize from feedback; hunt near-misses</h4><p>A skill iterated on three examples must work on a million. Fix categories of intent, not the failing case — and test the boundary with negatives that almost belong.</p></div>
+      <div class="doc-card"><h4>Bundle what every run reinvents</h4><p>If all three test transcripts wrote the same helper script, the skill should ship it. The signal for what belongs in scripts/ is empirical, not aesthetic.</p></div>
+      <div class="doc-card"><h4>Judge blind; diagnose unblinded</h4><p>Quality verdicts and causal explanations are different jobs that contaminate each other. Split them across agents — comparator picks, analyzer explains.</p></div>
+    </div>
+
+    <p style="margin-top: 34px;">The larger arc is the one from §03: skill authoring at Anthropic stopped being a genre of technical writing and became an experimental discipline — draft, instrument, measure against a counterfactual, put a human in the loop, generalize, repeat. skill-creator is that discipline packaged to run anywhere Claude does, conversational voice and all. The most honest summary is its own closing line: after 485 lines of protocol, it simply says <em>"Good luck!"</em></p>
+  </div>
+</section>
+
+</main>
+
+<footer class="colophon">
+  <div class="wrap">
+    <p style="color: var(--ink2)">Sources — everything above traces to one of these, read July 2026:</p>
+    <ul class="src-list">
+      <li>· local install of skill-creator (18 files) — byte-identical at /mnt/skills/examples and ~/.claude/skills</li>
+      <li>· github.com/anthropics/skills @ b29e7cf (full history; rewrite commit 3d59511, 2026-02-24)</li>
+      <li>· code.claude.com/docs/en/skills · platform docs: agent-skills overview &amp; best-practices</li>
+      <li>· agentskills.io/specification (the externalized open standard)</li>
+      <li>· anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills</li>
+    </ul>
+    <p style="margin-top: 18px;">Figures 01–09: 01 context ledger · 02 anatomy · 03 history · 04 loop · 05 benchmark · 06 trigger probe · 07 optimization run (mock data, real mechanics) · 08 live validator · 09 capability matrix. Quantities quoted from source are exact; token figures are the ~4-chars-per-token estimates the docs themselves use.</p>
+  </div>
+</footer>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  /* ================= scrollspy ================= */
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll("nav.toc a"));
+    var map = {};
+    links.forEach(function (a) { map[a.getAttribute("href").slice(1)] = a; });
+    if ("IntersectionObserver" in window) {
+      var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            links.forEach(function (a) { a.classList.remove("on"); });
+            var a = map[e.target.id];
+            if (a) a.classList.add("on");
+          }
+        });
+      }, { rootMargin: "-20% 0px -70% 0px" });
+      Array.prototype.forEach.call(document.querySelectorAll("section.chap"), function (s) { obs.observe(s); });
+    }
+  })();
+
+  /* ================= FIG 01 — context ledger ================= */
+  (function () {
+    var DISK = [
+      { f: "scripts/run_eval.py", note: "11.5 KB" },
+      { f: "scripts/aggregate_benchmark.py", note: "14.4 KB" },
+      { f: "agents/grader.md", note: "9.0 KB" },
+      { f: "eval-viewer/viewer.html", note: "45.0 KB" },
+      { f: "assets/eval_review.html", note: "7.1 KB" }
+    ];
+    var STAGES = [
+      {
+        btn: "1 · Session start",
+        title: "Standing cost only",
+        note: "Claude Code boots. Every installed skill contributes one line to available_skills — name plus description, nothing else. skill-creator's standing cost: ~80 tokens. The other seventeen files are inert weight on disk.",
+        body: false, ref: false, total: "~80 tokens", hot: "meta", disk: {}
+      },
+      {
+        btn: "2 · “Turn this into a skill”",
+        title: "The trigger fires — L2 loads",
+        note: "The request matches the description, Claude invokes the skill, and only now does the 485-line body enter context (~7k tokens). Note the order: the when-to-use decision was already made on ~80 tokens alone.",
+        body: true, ref: false, total: "~7,100 tokens", hot: "body", disk: {}
+      },
+      {
+        btn: "3 · Time to grade",
+        title: "L3 on demand — and a free tier",
+        note: "Grading needs exact JSON field names, so references/schemas.md is read (+~1.8k). The grader's playbook loads too — but into the grader subagent's own context. Cost to this window: zero.",
+        body: true, ref: true, total: "~8,900 tokens", hot: "ref",
+        disk: { "agents/grader.md": "→ loads in subagent's context" }
+      },
+      {
+        btn: "4 · Aggregate the benchmark",
+        title: "Code executes; context holds still",
+        note: "python -m scripts.aggregate_benchmark runs — 401 lines of statistics execute and only a short stdout summary comes back. The meter doesn't move. This asymmetry is the whole reason skills bundle scripts.",
+        body: true, ref: true, total: "~8,900 tokens + stdout", hot: null,
+        disk: { "scripts/aggregate_benchmark.py": "▶ executing — 0 tokens" }
+      }
+    ];
+    var ctls = $("ledger-ctls");
+    STAGES.forEach(function (s, i) {
+      var b = document.createElement("button");
+      b.className = "ctl";
+      b.textContent = s.btn;
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", function () { setStage(i); });
+      ctls.appendChild(b);
+    });
+    function setStage(i) {
+      var s = STAGES[i];
+      Array.prototype.forEach.call(ctls.children, function (b, j) {
+        b.classList.toggle("on", j === i);
+        b.setAttribute("aria-pressed", j === i ? "true" : "false");
+      });
+      $("blk-body").classList.toggle("ghost", !s.body);
+      $("blk-ref").classList.toggle("ghost", !s.ref);
+      ["blk-meta", "blk-body", "blk-ref"].forEach(function (id) {
+        $(id).classList.remove("hot", "hot-why");
+      });
+      if (s.hot === "meta") $("blk-meta").classList.add("hot");
+      if (s.hot === "body") $("blk-body").classList.add("hot");
+      if (s.hot === "ref") $("blk-ref").classList.add("hot-why");
+      $("cw-total").textContent = s.total;
+      $("stage-title").textContent = s.title;
+      $("stage-note").textContent = s.note;
+      var dl = DISK.map(function (d) {
+        var special = s.disk[d.f];
+        if (special) return '<div class="run">' + esc(d.f) + ' <span>' + esc(special) + "</span></div>";
+        return '<div class="idle">' + esc(d.f) + ' <span style="opacity:0.6">· ' + esc(d.note) + " · not loaded</span></div>";
+      }).join("");
+      $("disk-lines").innerHTML = dl;
+    }
+    setStage(0);
+  })();
+
+  /* ================= FIG 02 — anatomy tree ================= */
+  (function () {
+    var FILES = [
+      { p: "SKILL.md", d: "", b: "33,351 B · 485 ln · 5,166 w", lv: "l1", tag: "L1+L2",
+        role: "The orchestration playbook. Frontmatter (name + description) is the always-loaded trigger surface; the body is the full protocol — loop, eval procedure, platform adaptations.",
+        teach: "The only file whose prose is a guaranteed context cost when the skill runs. Everything else in the tree defers or never loads." },
+      { p: "grader.md", d: "agents/", b: "9,049 B · 1,261 w", lv: "l3", tag: "L3",
+        role: "Playbook for the grading subagent: evidence rules, burden of proof, claim extraction and verification, and the mandate to critique the evals themselves.",
+        teach: "Read only when a grader is spawned — and by the subagent, in its own context window. The main loop never pays for it." },
+      { p: "comparator.md", d: "agents/", b: "7,287 B · 988 w", lv: "l3", tag: "L3",
+        role: "The blind A/B judge: builds a task-specific rubric (content + structure, 1–5 scales), never told which skill produced which output, required to pick a winner.",
+        teach: "Blindness is enforced structurally — the knowledge of which output is which simply isn't in this agent's context." },
+      { p: "analyzer.md", d: "agents/", b: "10,376 B · 1,488 w", lv: "l3", tag: "L3",
+        role: "Two modes in one file: unblind a comparison to explain why the winner won; or sweep benchmark runs for patterns — flaky evals, non-discriminating assertions, skill-is-hurting signals.",
+        teach: "Judgment and diagnosis are separate mandates; benchmark mode is explicitly forbidden from suggesting fixes." },
+      { p: "schemas.md", d: "references/", b: "12,061 B · 1,365 w", lv: "l3", tag: "L3",
+        role: "Eight exact JSON contracts: evals, grading, timing, metrics, benchmark, comparison, analysis, history. The viewer reads these field names literally.",
+        teach: "A lookup table, not a lesson — consulted at file-generation time so regenerated JSON doesn't drift from what the tooling parses." },
+      { p: "eval_review.html", d: "assets/", b: "7,058 B", lv: "nl", tag: "ASSET",
+        role: "Template UI for reviewing the 20-query trigger eval set: edit queries, toggle should-trigger, export eval_set.json.",
+        teach: "Consumed by string replacement — three placeholders get swapped in. The model fills the template; it doesn't study it." },
+      { p: "viewer.html", d: "eval-viewer/", b: "44,998 B · 1,325 ln", lv: "nl", tag: "ASSET",
+        role: "The review UI template: Outputs and Benchmark tabs, inline rendering of text, images, PDFs and spreadsheets, autosaving feedback, previous-iteration comparison.",
+        teach: "The heaviest file in the skill — 35% bigger than SKILL.md — and it never enters context. A script injects data and a browser does the reading." },
+      { p: "generate_review.py", d: "eval-viewer/", b: "16,365 B", lv: "ex", tag: "EXEC",
+        role: "Scans the workspace for runs, embeds every output as base64 into viewer.html, serves it on port 3117 (regenerating per page load) or writes a --static file; persists feedback.json.",
+        teach: "Zero dependencies beyond the Python stdlib — the review loop must work on any machine Claude Code works on." },
+      { p: "quick_validate.py", d: "scripts/", b: "6,021 B", lv: "ex", tag: "EXEC",
+        role: "Frontmatter law: six allowed keys, kebab-case name ≤64 chars, description ≤1024 without angle brackets, exactly one SKILL.md per package.",
+        teach: "Deterministic rules become code, not prose — a model can't misremember a regex it never has to remember." },
+      { p: "package_skill.py", d: "scripts/", b: "4,234 B", lv: "ex", tag: "EXEC",
+        role: "Validates, then zips the folder into <name>.skill, excluding caches everywhere and evals/ at the root.",
+        teach: "Validation is a hard gate — refuse to produce an artifact that upload would reject anyway." },
+      { p: "run_eval.py", d: "scripts/", b: "11,464 B", lv: "ex", tag: "EXEC",
+        role: "The trigger probe: plants a decoy command file, launches headless claude -p, watches raw stream events for the decoy's UUID name, returns a verdict in seconds (§06, Fig. 06).",
+        teach: "Measures triggering in the real system rather than simulating it — the probe is Claude Code testing Claude Code." },
+      { p: "improve_description.py", d: "scripts/", b: "11,116 B", lv: "ex", tag: "EXEC",
+        role: "Prompts claude -p to rewrite a failing description, feeding it failures, false triggers, and all previous attempts; enforces the 1024-char ceiling with a safety-net rewrite.",
+        teach: "Since 2026-03 it rides the session's own auth — no API key, no setup, nothing to configure before the loop can run." },
+      { p: "run_loop.py", d: "scripts/", b: "13,605 B", lv: "ex", tag: "EXEC",
+        role: "The optimizer: stratified 60/40 train/test split (seed 42), evaluate → improve → repeat up to 5 iterations, test scores blinded from the improver, winner picked by test score.",
+        teach: "ML hygiene applied to a prompt: holdout, blinding, and selection-by-test are all defenses against overfitting the description." },
+      { p: "aggregate_benchmark.py", d: "scripts/", b: "14,386 B", lv: "ex", tag: "EXEC",
+        role: "Walks every grading.json, computes mean / sample stddev (n−1) / min / max for pass rate, time, tokens; emits benchmark.json + human-readable benchmark.md with deltas.",
+        teach: "Statistics are the canonical no-judgment-required job — the exact category the doctrine says to compile into scripts." },
+      { p: "generate_report.py", d: "scripts/", b: "12,847 B", lv: "ex", tag: "EXEC",
+        role: "The optimization run's live HTML report: one row per iteration, one column per query, ✓/✗ with trigger counts, train and test visually distinct, best row highlighted.",
+        teach: "Auto-refreshes every 5s while the loop runs — the human watches optimization land in real time instead of trusting a summary." },
+      { p: "utils.py", d: "scripts/", b: "1,661 B", lv: "ex", tag: "EXEC",
+        role: "parse_skill_md(): returns (name, description, content); handles YAML block scalars (>, |, >-, |-).",
+        teach: "One shared parser so every script agrees on what the frontmatter says." },
+      { p: "__init__.py", d: "scripts/", b: "0 B", lv: "ex", tag: "EXEC",
+        role: "Empty. Makes scripts/ an importable package so python -m scripts.run_loop works from the skill directory.",
+        teach: "Even the empty file is load-bearing: module invocation keeps relative imports stable no matter where the user runs from." },
+      { p: "LICENSE.txt", d: "", b: "11,357 B", lv: "nl", tag: "PKG",
+        role: "Apache 2.0. Ships inside the .skill package.",
+        teach: "Present, never priced — the license obeys the same economics as everything else here." }
+    ];
+    var tree = $("anat-tree");
+    var detail = $("anat-detail");
+    var current = 0;
+    FILES.forEach(function (f, i) {
+      var b = document.createElement("button");
+      b.className = "tnode";
+      b.setAttribute("role", "option");
+      b.innerHTML = '<span class="tname"><span class="tdir">' + esc(f.d) + "</span>" + esc(f.p) + '</span><span class="lv ' + f.lv + '">' + f.tag + "</span>";
+      b.addEventListener("click", function () { select(i); });
+      tree.appendChild(b);
+    });
+    function select(i) {
+      current = i;
+      var f = FILES[i];
+      Array.prototype.forEach.call(tree.children, function (n, j) {
+        n.classList.toggle("on", j === i);
+        n.setAttribute("aria-selected", j === i ? "true" : "false");
+      });
+      detail.innerHTML =
+        '<div class="path">' + esc(f.d + f.p) + "</div>" +
+        '<div class="meta-line">' + esc(f.b) + " · " + f.tag + "</div>" +
+        '<div class="role">' + esc(f.role) + "</div>" +
+        '<div class="teach">' + esc(f.teach) + "</div>";
+    }
+    select(0);
+  })();
+
+  /* ================= FIG 03 — timeline ================= */
+  (function () {
+    var EVENTS = [
+      { d: "2025-10-16", pr: "PR #1", t: "Initial release — the style-guide era",
+        b: "SKILL.md at 357 lines, plus init_skill.py (a scaffolder), package_skill.py and quick_validate.py. Doctrine-first: “Concise is Key,” degrees of freedom, what-not-to-include.", major: false },
+      { d: "2025-11-17", pr: "PR #112", t: "More doctrine",
+        b: "references/workflows.md and output-patterns.md join — pattern catalogs for skill authors. Same philosophy, more of it.", major: false },
+      { d: "2025-12-01", pr: "PR #129", t: "Repo restructure",
+        b: "The skill moves to skills/skill-creator/. Every older deep link and raw URL 404s from this day — worth knowing when you meet a stale tutorial.", major: false },
+      { d: "2026-02-06", pr: "PR #350", t: "Last of the old guard",
+        b: "A content refresh and scripts made executable — the final commit of the didactic era.", major: false },
+      { d: "2026-02-24", pr: "PR #465", t: "The rewrite — the laboratory era",
+        b: "agents/, eval-viewer/, the eval and optimization scripts arrive; init_skill.py and the doctrine chapters leave (the theory migrates to platform docs). 2,537 → 5,166 words, and a wholly new voice.", major: true },
+      { d: "2026-03-06", pr: "PR #547", t: "Zero-setup optimization",
+        b: "The description optimizer drops its ANTHROPIC_API_KEY requirement — claude -p now rides the session's own auth. The whole loop becomes runnable with no configuration at all.", major: false },
+      { d: "2026-04-20", pr: "PR #990", t: "License housekeeping",
+        b: "The Apache 2.0 copyright line is filled in: “Copyright 2026 Anthropic, PBC.” (Installed copies still carry the blank placeholder — installs lag the repo.)", major: false }
+    ];
+    var rail = $("tl-rail"), dates = $("tl-dates"), card = $("tl-card");
+    EVENTS.forEach(function (e, i) {
+      var b = document.createElement("button");
+      b.className = "tl-dot" + (e.major ? " major" : "");
+      b.setAttribute("aria-label", e.d + " — " + e.t);
+      b.addEventListener("click", function () { pick(i); });
+      rail.appendChild(b);
+      var s = document.createElement("span");
+      s.textContent = e.d.slice(2, 7);
+      dates.appendChild(s);
+    });
+    function pick(i) {
+      Array.prototype.forEach.call(rail.children, function (d, j) { d.classList.toggle("on", j === i); });
+      var e = EVENTS[i];
+      card.innerHTML = '<div class="tdate">' + esc(e.d) + " · " + esc(e.pr) + "</div><h4>" + esc(e.t) + "</h4><p>" + esc(e.b) + "</p>";
+    }
+    pick(4);
+  })();
+
+  /* ================= FIG 04 — the loop ================= */
+  (function () {
+    var ST = [
+      { n: "Capture intent", b: "<p>Four questions before anything else: what should Claude be able to do; when should it trigger; what's the output format; do we want test cases? If the conversation already contains the workflow (“turn this into a skill”), mine the history first — tools used, step order, corrections the user made — and have them confirm the gaps.</p><p>The test-case question has a default answer built in: objectively verifiable outputs (file transforms, extraction, codegen, fixed workflows) get test cases; subjective outputs (writing style, art) get human judgment instead. Suggest the default, let the user decide.</p>" },
+      { n: "Interview & research", b: "<p>Chase edge cases, input/output formats, example files, success criteria, dependencies — before writing any test prompt. Where MCP servers are available, research docs and similar skills via parallel subagents: “come prepared with context to reduce burden on the user.”</p>" },
+      { n: "Draft the skill", b: "<p>Description first, because it carries the entire triggering decision (§06) — every “when to use” clause lives there, written a little pushy. Then the body: imperative voice, under ~500 lines, reasons instead of MUSTs, output-format templates and worked examples where they earn their place. If the body approaches the limit, add a layer of hierarchy with clear pointers into references/.</p>" },
+      { n: "Test prompts", b: "<p>Two or three realistic prompts — “the kind of thing a real user would actually say” — shown to the user for sign-off before anything runs. Saved to evals/evals.json as prompts only; assertions are deliberately deferred to run-time, when they can be drafted during the wait.</p>" },
+      { n: "Run", b: "<p>For each test case, two subagents in the same turn: one with the skill, one baseline. New skill → baseline is no skill at all; improving an existing one → snapshot it first and run the old version. Outputs land in the workspace tree; each run's token count and duration is captured from the task notification the moment it arrives — that data exists nowhere else.</p>" },
+      { n: "Review", b: "<p>Grade with evidence against exact-name JSON contracts; aggregate to mean ± stddev; run the analyst pass for patterns the averages hide. Then the file's one ALL-CAPS rule: generate the eval viewer and get outputs in front of the human before evaluating them yourself. Their feedback.json — including the empty entries, which mean “fine” — sets the agenda.</p>" },
+      { n: "Improve", b: "<p>Four principles govern the rewrite: generalize from the feedback (the skill must survive a million prompts, not three); keep the prompt lean — read the transcripts and cut what wastes the model's time; explain the why behind every instruction; and bundle what every run reinvented — three transcripts all writing create_docx.py means the skill should ship it.</p><p>Then rerun everything — baselines included — into iteration-N+1, and go again.</p>" }
+    ];
+    var strip = $("loop-strip"), detail = $("loop-detail");
+    ST.forEach(function (s, i) {
+      if (i > 0) {
+        var a = document.createElement("span");
+        a.className = "st-arrow";
+        a.textContent = "→";
+        a.setAttribute("aria-hidden", "true");
+        strip.appendChild(a);
+      }
+      var b = document.createElement("button");
+      b.className = "st";
+      b.innerHTML = '<span class="sno">' + String(i + 1).padStart(2, "0") + '</span><span class="snm">' + esc(s.n) + "</span>";
+      b.addEventListener("click", function () { pick(i); });
+      strip.appendChild(b);
+    });
+    function pick(i) {
+      var nodes = strip.querySelectorAll(".st");
+      Array.prototype.forEach.call(nodes, function (n, j) { n.classList.toggle("on", j === i); });
+      detail.innerHTML = "<h4>" + String(i + 1).padStart(2, "0") + " · " + esc(ST[i].n) + '</h4><div class="body">' + ST[i].b + "</div>";
+    }
+    pick(0);
+  })();
+
+  /* ================= shared tooltip ================= */
+  var tip = document.createElement("div");
+  tip.className = "chart-tip";
+  document.body.appendChild(tip);
+  function showTip(html, x, y) {
+    tip.innerHTML = html;
+    tip.classList.add("show");
+    var pad = 14;
+    var w = tip.offsetWidth, h = tip.offsetHeight;
+    var left = Math.min(Math.max(x + pad, 8), window.innerWidth - w - 8);
+    var top = y - h - pad;
+    if (top < 8) top = y + pad;
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+  }
+  function hideTip() { tip.classList.remove("show"); }
+
+  /* ================= FIG 05 — benchmark chart ================= */
+  (function () {
+    var rows = [
+      { label: "With skill", mean: 0.85, sd: 0.05, lo: 0.80, hi: 0.90, color: "var(--mech-mark)" },
+      { label: "Baseline (no skill)", mean: 0.35, sd: 0.08, lo: 0.28, hi: 0.45, color: "var(--why-mark)" }
+    ];
+    var W = 560, H = 172, L = 150, R = 24, T = 26, B = 34;
+    var plotW = W - L - R;
+    function X(v) { return L + v * plotW; }
+    var s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Pass rate: with skill 85% plus or minus 5; baseline 35% plus or minus 8">';
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (g) {
+      s += '<line x1="' + X(g) + '" y1="' + T + '" x2="' + X(g) + '" y2="' + (H - B) + '" style="stroke: var(--hair); stroke-width: 1"/>';
+      s += '<text x="' + X(g) + '" y="' + (H - B + 18) + '" text-anchor="middle" style="fill: var(--muted); font-family: var(--mono); font-size: 10px; font-variant-numeric: tabular-nums;">' + Math.round(g * 100) + "%</text>";
+    });
+    rows.forEach(function (r, i) {
+      var y = T + 28 + i * 56;
+      s += '<text x="' + (L - 12) + '" y="' + (y + 4) + '" text-anchor="end" style="fill: var(--ink2); font-size: 12.5px; font-family: var(--sans);">' + esc(r.label) + "</text>";
+      s += '<line x1="' + X(r.lo) + '" y1="' + y + '" x2="' + X(r.hi) + '" y2="' + y + '" style="stroke: ' + r.color + '; stroke-width: 2; stroke-linecap: round; opacity: 0.55"/>';
+      [r.lo, r.hi].forEach(function (c) {
+        s += '<line x1="' + X(c) + '" y1="' + (y - 5) + '" x2="' + X(c) + '" y2="' + (y + 5) + '" style="stroke: ' + r.color + '; stroke-width: 2; opacity: 0.55"/>';
+      });
+      s += '<circle class="bdot" data-i="' + i + '" cx="' + X(r.mean) + '" cy="' + y + '" r="6" tabindex="0" style="fill: ' + r.color + '; stroke: var(--surface); stroke-width: 2; cursor: default;"/>';
+      s += '<text x="' + X(r.mean) + '" y="' + (y - 13) + '" text-anchor="middle" style="fill: var(--ink); font-family: var(--mono); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;">' + Math.round(r.mean * 100) + "% ± " + Math.round(r.sd * 100) + "</text>";
+    });
+    s += '<text x="' + L + '" y="' + (T - 12) + '" style="fill: var(--muted); font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;">ASSERTION PASS RATE · 3 RUNS PER CONFIG · whiskers = min–max</text>';
+    s += "</svg>";
+    $("bench-chart").innerHTML = s;
+    Array.prototype.forEach.call(document.querySelectorAll(".bdot"), function (d) {
+      var r = rows[+d.getAttribute("data-i")];
+      var html = "<b>" + esc(r.label) + "</b><br>mean " + Math.round(r.mean * 100) + "% · σ " + Math.round(r.sd * 100) + "<br>range " + Math.round(r.lo * 100) + "–" + Math.round(r.hi * 100) + "% · n=3";
+      d.addEventListener("mousemove", function (e) { showTip(html, e.clientX, e.clientY); });
+      d.addEventListener("mouseleave", hideTip);
+      d.addEventListener("focus", function () {
+        var b = d.getBoundingClientRect();
+        showTip(html, b.left + b.width / 2, b.top);
+      });
+      d.addEventListener("blur", hideTip);
+    });
+  })();
+
+  /* ================= FIG 06 — trigger probe sequence ================= */
+  (function () {
+    var LANES = ["run_eval.py", ".claude/commands/", "claude -p", "stream events"];
+    var STEPS = [
+      { n: "Plant the decoy", from: 0, to: 1, msg: "write decoy: …-skill-a3f81b2c.md",
+        x: "<b>The description under test is written into a temp command file</b> in the project's <code>.claude/commands/</code>. Custom commands surface in <code>available_skills</code>, so the decoy appears to Claude exactly like an installed skill — same list, same format. The 8-hex UUID suffix guarantees the name collides with nothing and matches unambiguously. The probe tests the description in the real system, not a simulation." },
+      { n: "Launch a fresh Claude", from: 0, to: 2, msg: "spawn: claude -p “<query>” (stream-json)",
+        x: "<b>A headless Claude session runs the user's realistic query.</b> The <code>CLAUDECODE</code> env var is stripped so a probe can nest inside a running session — that guard exists for interactive terminal conflicts, which a subprocess doesn't have. <code>--model</code> is pinned to the session's own model, because triggering behavior differs by model and you want to measure the one the user actually runs." },
+      { n: "Watch the stream", from: 2, to: 3, msg: "content_block_start → tool_use?",
+        x: "<b>The first tool call decides.</b> If it names any tool other than <code>Skill</code> or <code>Read</code>, the probe returns “not triggered” instantly. Reading the skill's file counts the same as formally invoking it — either way, the description pulled Claude in, which is the thing being measured." },
+      { n: "Early verdict", from: 3, to: 0, msg: "input_json_delta: “-a3f81b2c” → TRIGGERED",
+        x: "<b>Tool arguments stream in fragments.</b> The probe accumulates partial JSON and returns the moment the decoy's unique name appears — before the tool executes, before the message completes. A verdict costs a few seconds of streaming, not a full agent run. This is why 60 probes (20 queries × 3) finish in minutes." },
+      { n: "Clean up, aggregate", from: 0, to: 1, msg: "kill · delete decoy · rate = n/3",
+        x: "<b>Process killed and decoy deleted in <code>finally</code> blocks</b> — every exit path, including timeouts. Three probes per query become a trigger rate; ≥ 0.5 counts as triggered. A should-trigger query passes at rate ≥ 0.5, a should-not passes below it, and verbose mode reports precision, recall and accuracy across all runs." }
+    ];
+    var W = 660, H = 268, top = 46, laneX = [84, 264, 448, 592];
+    var stepsEl = $("seq-steps");
+    STEPS.forEach(function (st, i) {
+      var b = document.createElement("button");
+      b.className = "sq";
+      b.innerHTML = '<span class="qno">' + String(i + 1).padStart(2, "0") + "</span><span>" + esc(st.n) + "</span>";
+      b.addEventListener("click", function () { pick(i); });
+      stepsEl.appendChild(b);
+    });
+    function arrow(x1, x2, y, active, label) {
+      var col = active ? "var(--mech-mark)" : "var(--baseline)";
+      var wgt = active ? 2.4 : 1.2;
+      var dir = x2 > x1 ? 1 : -1;
+      var head = x2 - dir * 8;
+      var s = '<line x1="' + x1 + '" y1="' + y + '" x2="' + head + '" y2="' + y + '" style="stroke: ' + col + "; stroke-width: " + wgt + '"/>';
+      s += '<polygon points="' + x2 + "," + y + " " + head + "," + (y - 4.5) + " " + head + "," + (y + 4.5) + '" style="fill: ' + col + '"/>';
+      if (active && label) {
+        var mid = (x1 + x2) / 2;
+        s += '<text x="' + mid + '" y="' + (y - 10) + '" text-anchor="middle" style="fill: var(--mech); font-family: var(--mono); font-size: 11px; font-weight: 600;">' + esc(label) + "</text>";
+      }
+      return s;
+    }
+    function render(active) {
+      var s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Sequence diagram of one trigger probe">';
+      LANES.forEach(function (l, i) {
+        var hot = active !== null && (STEPS[active].from === i || STEPS[active].to === i);
+        s += '<text x="' + laneX[i] + '" y="22" text-anchor="middle" style="font-family: var(--mono); font-size: 12px; font-weight: ' + (hot ? 700 : 500) + "; fill: " + (hot ? "var(--mech)" : "var(--muted)") + ';">' + esc(l) + "</text>";
+        s += '<line x1="' + laneX[i] + '" y1="' + top + '" x2="' + laneX[i] + '" y2="' + (H - 14) + '" style="stroke: ' + (hot ? "var(--baseline)" : "var(--hair)") + '; stroke-width: 1;"/>';
+      });
+      STEPS.forEach(function (st, i) {
+        var y = top + 28 + i * 40;
+        s += arrow(laneX[st.from], laneX[st.to], y, i === active, st.msg);
+        s += '<text x="10" y="' + (y + 3.5) + '" style="font-family: var(--mono); font-size: 10px; fill: ' + (i === active ? "var(--mech)" : "var(--muted)") + ';">' + String(i + 1).padStart(2, "0") + "</text>";
+      });
+      s += "</svg>";
+      $("seq-diagram").innerHTML = s;
+    }
+    function pick(i) {
+      Array.prototype.forEach.call(stepsEl.children, function (n, j) { n.classList.toggle("on", j === i); });
+      render(i);
+      $("seq-explain").innerHTML = STEPS[i].x;
+    }
+    pick(0);
+  })();
+
+  /* ================= FIG 07 — optimization dashboard ================= */
+  (function () {
+    var Q = [
+      { l: "fill out this I-9 for my new hire", pos: true, test: false },
+      { l: "boss sent a W-9 — fill it from our records", pos: true, test: false },
+      { l: "complete the fields in rental_application.pdf", pos: true, test: false },
+      { l: "insurance claim form + patient data csv", pos: true, test: false },
+      { l: "populate the grant form from proposal.md", pos: true, test: false },
+      { l: "sign and date every page of contract.pdf", pos: true, test: false },
+      { l: "extract the tables from this pdf", pos: false, test: false },
+      { l: "merge these two pdfs into one", pos: false, test: false },
+      { l: "why does my pdf render blank?", pos: false, test: false },
+      { l: "convert report.docx to pdf", pos: false, test: false },
+      { l: "ocr this scanned receipt", pos: false, test: false },
+      { l: "summarize this 30-page pdf", pos: false, test: false },
+      { l: "type my answers into the fillable fields", pos: true, test: true },
+      { l: "HR onboarding packet needs my info", pos: true, test: true },
+      { l: "put these values into the tax form", pos: true, test: true },
+      { l: "complete the visa application from passport data", pos: true, test: true },
+      { l: "redact SSNs from this pdf", pos: false, test: true },
+      { l: "split the pdf into chapters", pos: false, test: true },
+      { l: "make a pdf form from scratch", pos: false, test: true },
+      { l: "compress this pdf under 5 MB", pos: false, test: true }
+    ];
+    var IT = [
+      { desc: "Fills PDF form fields programmatically using pypdf.",
+        note: "The starting point: implementation-focused, third person, no intent language. It undertriggers badly — filling requests phrased as tasks (“complete”, “type into”) sail past it. Negatives are safe only because almost nothing triggers.",
+        trig: [1, 2, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0] },
+      { desc: "Use this skill when the user wants to fill out, complete, or populate a PDF form with data — job applications, tax forms, onboarding paperwork — even if they don't say “form” explicitly.",
+        note: "The pushy rewrite: imperative mood, intent verbs, an explicit “even if they don't say form.” Recall jumps — but two near-misses start false-triggering (“extract” and “ocr” share the paperwork smell).",
+        trig: [3, 2, 2, 3, 2, 3, 2, 0, 1, 0, 2, 1, 2, 3, 1, 2, 1, 0, 2, 1] },
+      { desc: "Use this skill when the user wants to fill out, complete, e-sign, or populate an existing PDF form with values from any source — spreadsheets, notes, records. Not for extracting data from PDFs, creating new forms, or general PDF editing; only filling fields that already exist.",
+        note: "Boundaries arrive: the “Not for extracting…” clause fixes the false triggers by describing categories, not queries. One train positive got flakier — and this is the best held-out score of the run.",
+        trig: [3, 3, 2, 3, 1, 3, 1, 0, 0, 0, 1, 0, 2, 3, 2, 3, 2, 0, 1, 0] },
+      { desc: "Use for filling PDF forms of any kind: I-9, W-9, W-2, 1099, visa and green-card applications, rental applications, insurance claims, HR onboarding packets, grant applications, court forms, school enrollment, medical intake. Trigger whenever a user mentions completing, signing, filling, populating, or typing into any form or official document.",
+        note: "The overfit move: enumerate the training set's greatest hits. Train goes perfect and the loop exits “all_passed” — but held-out negatives regress: the word-storm now pulls in “make a pdf form from scratch” and “redact.” Exactly the failure the holdout exists to catch.",
+        trig: [3, 3, 3, 3, 2, 3, 1, 0, 0, 0, 1, 0, 3, 3, 2, 3, 2, 1, 3, 0] }
+    ];
+    function passOf(q, t) { return q.pos ? t >= 2 : t < 2; }
+    function scores(it) {
+      var tr = 0, trN = 0, te = 0, teN = 0;
+      Q.forEach(function (q, i) {
+        var p = passOf(q, it.trig[i]);
+        if (q.test) { teN++; if (p) te++; } else { trN++; if (p) tr++; }
+      });
+      return { tr: tr, trN: trN, te: te, teN: teN };
+    }
+    var BEST = 2;
+    var itersEl = $("opt-iters");
+    IT.forEach(function (it, i) {
+      var sc = scores(it);
+      var b = document.createElement("button");
+      b.className = "oit";
+      b.innerHTML =
+        '<span class="ono">iter ' + (i + 1) + "</span>" +
+        '<span class="score">train ' + sc.tr + "/" + sc.trN + "</span>" +
+        '<span class="score">test ' + sc.te + "/" + sc.teN + "</span>" +
+        '<span class="desc-snip">' + esc(it.desc) + (i === BEST ? ' <span class="best-flag">★ SHIPPED (best test)</span>' : "") + "</span>";
+      b.addEventListener("click", function () { pick(i); });
+      itersEl.appendChild(b);
+    });
+    function pick(sel) {
+      Array.prototype.forEach.call(itersEl.children, function (n, j) { n.classList.toggle("on", j === sel); });
+      var it = IT[sel];
+      var sc = scores(it);
+      $("opt-desc").innerHTML =
+        '<div class="dlabel">iteration ' + (sel + 1) + " description · " + it.desc.length + " chars / 1024" + (sel === BEST ? " · ★ shipped" : "") + "</div>" +
+        '<div class="dtext">“' + esc(it.desc) + "”</div>" +
+        '<div class="dnote">' + esc(it.note) + " <b>Train " + sc.tr + "/" + sc.trN + " · test " + sc.te + "/" + sc.teN + ".</b></div>";
+      var h = "<thead><tr><th class=\"qlab\">query (→ 3 probes each)</th><th>set</th>";
+      IT.forEach(function (_, i) {
+        h += "<th" + (i === sel ? ' style="outline: 2px solid var(--mech-mark); outline-offset: -2px;"' : "") + ">it" + (i + 1) + "</th>";
+      });
+      h += "</tr></thead><tbody>";
+      Q.forEach(function (q, qi) {
+        h += '<tr><th class="qlab ' + (q.pos ? "pos" : "neg") + '" title="' + esc(q.l) + '">' + esc(q.l) + "</th>";
+        h += "<td class=\"" + (q.test ? "test-cell" : "") + '">' + (q.test ? "test" : "train") + "</td>";
+        IT.forEach(function (it2, i) {
+          var t = it2.trig[qi];
+          var p = passOf(q, t);
+          h += '<td class="' + (q.test ? "test-cell" : "") + '"><span class="qmark ' + (p ? "ok" : "bad") + '">' + (p ? "✓" : "✗") + "<small>" + t + "/3</small></span></td>";
+        });
+        h += "</tr>";
+      });
+      h += "</tbody>";
+      $("opt-grid").innerHTML = h;
+    }
+    pick(BEST);
+
+    /* train vs test line chart */
+    (function () {
+      var train = [58.3, 83.3, 91.7, 100], test = [50, 75, 87.5, 75];
+      var W = 560, H = 210, L = 46, R = 120, T = 24, B = 34;
+      var pw = W - L - R, ph = H - T - B;
+      function X(i) { return L + (i / 3) * pw; }
+      function Y(v) { return T + (1 - (v - 40) / 60) * ph; }
+      function path(a) { return a.map(function (v, i) { return (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1); }).join(" "); }
+      var s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Train vs held-out test accuracy across four iterations; test peaks at iteration 3">';
+      [40, 60, 80, 100].forEach(function (g) {
+        s += '<line x1="' + L + '" y1="' + Y(g) + '" x2="' + (W - R) + '" y2="' + Y(g) + '" style="stroke: var(--hair); stroke-width: 1"/>';
+        s += '<text x="' + (L - 8) + '" y="' + (Y(g) + 3.5) + '" text-anchor="end" style="fill: var(--muted); font-family: var(--mono); font-size: 10px; font-variant-numeric: tabular-nums;">' + g + "%</text>";
+      });
+      for (var i = 0; i < 4; i++) {
+        s += '<text x="' + X(i) + '" y="' + (H - B + 18) + '" text-anchor="middle" style="fill: var(--muted); font-family: var(--mono); font-size: 10px;">it' + (i + 1) + "</text>";
+      }
+      s += '<line x1="' + X(2) + '" y1="' + T + '" x2="' + X(2) + '" y2="' + (H - B) + '" style="stroke: var(--good); stroke-width: 1; stroke-dasharray: none; opacity: 0.5"/>';
+      s += '<text x="' + X(2) + '" y="' + (T - 8) + '" text-anchor="middle" style="fill: var(--good-text); font-family: var(--mono); font-size: 9.5px; font-weight: 700;">SHIPPED</text>';
+      s += '<path d="' + path(train) + '" style="fill: none; stroke: var(--why-mark); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round;"/>';
+      s += '<path d="' + path(test) + '" style="fill: none; stroke: var(--mech-mark); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round;"/>';
+      [train, test].forEach(function (a, k) {
+        var col = k === 0 ? "var(--why-mark)" : "var(--mech-mark)";
+        a.forEach(function (v, i) {
+          s += '<circle cx="' + X(i) + '" cy="' + Y(v) + '" r="4.5" style="fill: ' + col + '; stroke: var(--surface); stroke-width: 2;"/>';
+        });
+        var lab = k === 0 ? "train 100%" : "test 75%";
+        s += '<text x="' + (X(3) + 10) + '" y="' + (Y(a[3]) + 3.5) + '" style="fill: var(--ink2); font-family: var(--mono); font-size: 10.5px;">' + lab + "</text>";
+      });
+      s += "</svg>";
+      $("opt-chart").innerHTML =
+        '<div class="opt-legend" style="margin-bottom: 8px;"><span><i style="background: var(--why-mark)"></i>train (12 queries — visible to the improver)</span><span><i style="background: var(--mech-mark)"></i>held-out test (8 queries — blinded)</span></div>' + s;
+    })();
+  })();
+
+  /* ================= FIG 08 — validator ================= */
+  (function () {
+    var nameEl = $("v-name"), descEl = $("v-desc");
+    function check() {
+      var name = nameEl.value;
+      var desc = descEl.value;
+      var checks = [];
+      function add(ok, level, text, src) { checks.push({ ok: ok, level: level, text: text, src: src }); }
+
+      var nTrim = name.trim();
+      add(nTrim.length > 0, "hard", "name is present", "validator");
+      add(!nTrim || /^[a-z0-9-]+$/.test(nTrim), "hard", "kebab-case only: lowercase letters, digits, hyphens", "validator");
+      add(!nTrim || !(nTrim.startsWith("-") || nTrim.endsWith("-") || nTrim.indexOf("--") !== -1), "hard", "no leading / trailing / doubled hyphens", "validator");
+      add(nTrim.length <= 64, "hard", "name ≤ 64 chars (now " + nTrim.length + ")", "validator");
+      var lower = nTrim.toLowerCase();
+      add(!(lower.indexOf("anthropic") !== -1 || lower.indexOf("claude") !== -1), "docs", "avoid reserved words “anthropic” / “claude”", "docs");
+      add(/(^|-)[a-z]+ing(-|$)/.test(lower), "soft", "gerund form suggested (processing-pdfs, filling-forms)", "docs");
+
+      var dTrim = desc.trim();
+      add(dTrim.length > 0, "hard", "description is present", "validator");
+      add(dTrim.length <= 1024, "hard", "description ≤ 1024 chars", "validator");
+      add(!(desc.indexOf("<") !== -1 || desc.indexOf(">") !== -1), "hard", "no angle brackets < >", "validator");
+      var words = dTrim ? dTrim.split(/\s+/).length : 0;
+      add(words >= 100 && words <= 200, "soft", "target 100–200 words (now " + words + ")", "advisory");
+      add(!/^\s*(this skill|a skill)/i.test(dTrim), "soft", "imperative mood: “Use this skill when…”, not “This skill does…”", "advisory");
+      add(/\b(use (this|when)|use it|whenever|use for)\b/i.test(dTrim), "soft", "says when to use it, not just what it is — and a little pushy", "advisory");
+
+      var html = "";
+      var hardFails = 0, docsFails = 0;
+      checks.forEach(function (c) {
+        var cls, glyph;
+        if (c.ok) { cls = "pass"; glyph = "✓"; }
+        else if (c.level === "hard") { cls = "fail"; glyph = "✗"; hardFails++; }
+        else if (c.level === "docs") { cls = "fail"; glyph = "✗"; docsFails++; }
+        else { cls = "warn"; glyph = "○"; }
+        html += '<div class="vc ' + cls + '"><span class="vg">' + glyph + "</span><span>" + esc(c.text) + '</span><span class="src">' + c.src + "</span></div>";
+      });
+      $("v-checks").innerHTML = html;
+
+      $("v-name-count").innerHTML = nTrim.length + " / 64 chars";
+      var overD = dTrim.length > 1024;
+      $("v-desc-count").innerHTML = '<span class="' + (overD ? "over" : "") + '">' + dTrim.length + " / 1024 chars</span> · " + words + " words";
+
+      var v = $("v-verdict");
+      var docsNote = docsFails > 0 ? " (" + docsFails + " docs rule" + (docsFails > 1 ? "s" : "") + " would still block a claude.ai upload)" : "";
+      if (hardFails === 0) {
+        v.className = "verdict ok";
+        v.textContent = "✓ Skill is valid! — quick_validate.py exits 0; package_skill.py will zip it." + docsNote;
+      } else {
+        v.className = "verdict bad";
+        v.textContent = "✗ Validation failed (" + hardFails + " validator rule" + (hardFails > 1 ? "s" : "") + ") — package_skill.py refuses to package." + docsNote;
+      }
+    }
+    nameEl.addEventListener("input", check);
+    descEl.addEventListener("input", check);
+    check();
+  })();
+})();
+</script>
+
+</body>
+</html>
