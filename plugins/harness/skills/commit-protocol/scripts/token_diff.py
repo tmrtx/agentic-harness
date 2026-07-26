@@ -159,15 +159,18 @@ def main():
     parser = Parser(
         description="Emit the commit protocol's `Token diff:` line for steering files.",
     )
-    parser.add_argument("--model",
-                        default=DEFAULT_MODEL)
+    parser.add_argument("--model", default=DEFAULT_MODEL,
+                        help="model whose tokenizer counts; named in the "
+                             "emitted line (default: %(default)s)")
     parser.add_argument("--base", default="HEAD",
                         help="revision for the before side (default: HEAD)")
     parser.add_argument("--target", default=None,
                         help="revision for the after side (default: the index)")
     parser.add_argument("paths", nargs="*",
                         help="steering files, repo-root-relative; default: "
-                             "files in the diff matching STEERING_RE")
+                             "files in the diff matching STEERING_RE. Pass "
+                             "paths to widen or narrow that set - e.g. "
+                             "intent-based steering text the pattern misses")
     args = parser.parse_args()
 
     inside = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
