@@ -290,8 +290,10 @@ recording protocol names two artifacts by path: `oracle-state.json` and
 not, and creating them is introducing a convention the team never adopted, on
 a task that asked for something else.
 
-The pilot separated perfectly on this: **3 of 3 with-skill runs created both
-files at the host root; 0 of 5 baselines did.** The baselines instead added a
+The pilot separated perfectly on this: **6 of 6 with-skill runs created both
+files at the host root; 0 of 5 baselines did**, across three cases and two
+batches. Perfect separation on 11 runs is as strong as anything else the
+suite has measured. The baselines instead added a
 row to the host's existing `CONTRIBUTING.md` rules table — a home the repo
 already uses for exactly this, pairing each rule with how it is checked.
 

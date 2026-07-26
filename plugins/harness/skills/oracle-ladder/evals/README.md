@@ -159,8 +159,8 @@ Claims this suite makes about itself, and their status:
 
 ## Iteration notes
 
-**Pilot on the new rig (2026-07-26).** Partial: C2, C4, C5 across two batches,
-1–2 runs per arm. Not a headline — too few runs, and one case could not run at
+**Pilot on the new rig (2026-07-26).** 11 runs: C2, C4, C5 across two batches,
+2 runs per arm for C2 and C5 with-skill, 1–2 elsewhere. Not a headline — too few runs, and one case could not run at
 all. What it established:
 
 - **The rig works and the baseline is strong.** With no oracle culture in the
@@ -172,8 +172,8 @@ all. What it established:
   grounds that doing so is what eroded trust in the hook. Both are C5.4 and
   C5.5 territory reached unaided. Expect the enforcement-design advantage
   measured by the previous suite to shrink here, and treat that as a result.
-- **X1 was found and added.** Every with-skill run planted the recording
-  apparatus in the host; no baseline did. See X1 in `KEY.md`.
+- **X1 was found and added.** All 6 with-skill runs planted the recording
+  apparatus at the host root; 0 of 5 baselines did. See X1 in `KEY.md`.
 - **Two grader defects, both found by running rather than reading.** C5.2
   matched `lib/config` anywhere in the hook, so it failed a run for
   explaining in a comment the fix it had just made — penalizing exactly what
