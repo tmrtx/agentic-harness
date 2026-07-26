@@ -26,5 +26,12 @@
     "since": "2026-07-26",
     "subject": "the token-diff script's behavior",
     "mechanism": "tests/token-diff-test.sh"
+  },
+  "ORC-5": {
+    "oracle-class": "runtime",
+    "ground-truth": "derived",
+    "since": "2026-07-26",
+    "subject": "the Token diff figure recorded on a steering-text commit",
+    "mechanism": "re-run plugins/harness/skills/commit-protocol/scripts/token_diff.py --base <sha>^ --target <sha>; the file set derives from the commit's diff and the count_tokens endpoint is the reference"
   }
 }
