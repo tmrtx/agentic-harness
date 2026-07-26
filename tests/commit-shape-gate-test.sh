@@ -87,6 +87,11 @@ fcommit "src/app.py" "print('hi')" "$SHAPE"
 out="$(payload 'git commit -m code' "$TMP" | "$GATE")"
 [ -z "$out" ] && echo "PASS: non-steering commit needs no token line" || { echo "FAIL: non-steering commit produced output: $out"; fails=$((fails+1)); }
 
+# 10b. a non-ASCII steering path is still recognized as steering text
+fcommit "skills/foo/café.md" "steer accented" "$SHAPE"
+out="$(payload 'git commit -m accent' "$TMP" | "$GATE")"
+check "non-ascii steering commit yields feedback" "Token diff" "$out"
+
 # 11. shapeless steering commit: both findings arrive in one message
 fcommit "commands/do.md" "steer command" "no shape at all"
 out="$(payload 'git commit -m both' "$TMP" | "$GATE")"

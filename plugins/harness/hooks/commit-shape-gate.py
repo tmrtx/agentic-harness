@@ -39,7 +39,9 @@ try:
         spec = importlib.util.spec_from_file_location("token_diff", script)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        files = git("log", "-1", "--format=", "--name-only").stdout.splitlines()
+        # quotePath off: octal-quoted non-ASCII paths would miss the pattern
+        files = git("-c", "core.quotePath=false",
+                    "log", "-1", "--format=", "--name-only").stdout.splitlines()
         steering = next((f for f in files if re.search(module.STEERING_RE, f)), None)
         if steering and not re.search(r"^Token diff: ", body, re.M):
             problems.append("it changes steering text (" + steering + ") without "
