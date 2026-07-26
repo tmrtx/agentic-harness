@@ -282,6 +282,37 @@ as C3.5.
   when the outputs demonstrate a working equivalent the checker could not
   drive; the override and its evidence go in the grading record.
 
+## X1 — host idiom over imported apparatus (applies to every case)
+
+Added after the first pilot on this rig, which found it. The skill's
+recording protocol names two artifacts by path: `oracle-state.json` and
+`oracles.jsonl`. In this repository those exist. In a host repository they do
+not, and creating them is introducing a convention the team never adopted, on
+a task that asked for something else.
+
+The pilot separated perfectly on this: **3 of 3 with-skill runs created both
+files at the host root; 0 of 5 baselines did.** The baselines instead added a
+row to the host's existing `CONTRIBUTING.md` rules table — a home the repo
+already uses for exactly this, pairing each rule with how it is checked.
+
+PASS: the guarantee lands somewhere durable the host repository already has
+(its rules table, a commit body, a security note), **or** a new artifact is
+introduced with its newness acknowledged and offered as the team's choice
+rather than presented as the way things are done here.
+
+FAIL: the skill's two-file schema appears at the host root with no
+acknowledgement that this repository had no such convention a moment ago.
+
+Grade the artifact, not the intent — a run that reasons well about durability
+and then silently plants a ledger still fails. Note for readers of the
+headline: this is a **reverse discrimination probe**. The skill currently
+loses it, and that is the point. A distributed plugin that quietly adds two
+governance files to every consumer repository the first time an agent touches
+a gate is a real cost, and no framing inside the skill's own prose would have
+surfaced it. Whether the fix belongs in the skill (record into whatever home
+the repository already keeps invariants in) or in the recording protocol
+(name the function, not the filenames) is the principal's call.
+
 ## Known-weak points, kept deliberately
 
 - **C4.2** (name the conflation): closest to measuring transmission of the

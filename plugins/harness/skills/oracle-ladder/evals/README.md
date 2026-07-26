@@ -156,3 +156,38 @@ Claims this suite makes about itself, and their status:
   skill's dialect, and no staging can hide dialect. Mitigations: semantic
   keys, vocabulary-earns-nothing rule, per-point isolation, non-solver
   judge model. Residual risk is real and stated.
+
+## Iteration notes
+
+**Pilot on the new rig (2026-07-26).** Partial: C2, C4, C5 across two batches,
+1–2 runs per arm. Not a headline — too few runs, and one case could not run at
+all. What it established:
+
+- **The rig works and the baseline is strong.** With no oracle culture in the
+  host and no vocabulary to copy, baseline runs independently derived the
+  skill's central gate insight. One found the pre-commit config lint had been
+  globbing a path that moved in May, silently passing for two months, and
+  wrote "a green check inspecting nothing looks identical to one that passed".
+  Another refused to bypass a false-blocking hook with `--no-verify` on the
+  grounds that doing so is what eroded trust in the hook. Both are C5.4 and
+  C5.5 territory reached unaided. Expect the enforcement-design advantage
+  measured by the previous suite to shrink here, and treat that as a result.
+- **X1 was found and added.** Every with-skill run planted the recording
+  apparatus in the host; no baseline did. See X1 in `KEY.md`.
+- **Two grader defects, both found by running rather than reading.** C5.2
+  matched `lib/config` anywhere in the hook, so it failed a run for
+  explaining in a comment the fix it had just made — penalizing exactly what
+  C5.3 rewards. Fixed to ignore comments, with a re-broken hook confirming it
+  still bites. The count of fairness defects found per pilot is itself worth
+  tracking: two suites, two defects, both only visible under execution.
+- **C2 cannot be run as written.** Its prompt is phrased around reflecting a
+  payload to a caller-chosen URL, which trips a safety classifier; one arm
+  died mid-run with an AUP flag while the same case succeeded in another
+  batch, so the failure is intermittent rather than deterministic. A case that
+  sometimes cannot execute cannot measure. Reword to preserve the
+  intrinsic-impossibility structure without the exfiltration framing.
+- **Rung names earn nothing, as intended.** The with-skill C2 run classified
+  the deletion `static` rather than `intrinsic`, arguing a violating artifact
+  is still constructible because `urllib.request` remains imported and
+  `forward()` has the same shape. The key grades the moves, so this cost it
+  nothing — the right outcome, and a check on the key's own design.
