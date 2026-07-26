@@ -19,8 +19,9 @@ check() { # name expected_fragment actual_out
 }
 
 git -C "$TMP" init -q
-PYC="$REPO/plugins/harness/skills/commit-protocol/scripts/__pycache__"
-PYC_PRE="$([ -d "$PYC" ] && echo 1 || echo 0)"
+# Redirect any bytecode writes to a fresh directory, so the no-bytecode case
+# below is decidable regardless of what a past run left in the repo tree.
+export PYTHONPYCACHEPREFIX="$TMP/pyc"
 
 # 1. non-commit command: silent
 out="$(payload 'ls -la' "$TMP" | "$GATE")"
@@ -90,9 +91,23 @@ out="$(payload 'git commit -m both' "$TMP" | "$GATE")"
 check "shapeless steering commit names the shape" "required per the oracle-ladder skill" "$out"
 check "shapeless steering commit also names the token line" "Token diff" "$out"
 
-# 12. the gate leaves no bytecode behind in the plugin tree
-PYC_POST="$([ -d "$PYC" ] && echo 1 || echo 0)"
-[ "$PYC_POST" = "$PYC_PRE" ] && echo "PASS: gate writes no bytecode into the plugin tree" || { echo "FAIL: gate created $PYC"; fails=$((fails+1)); }
+# 12. the gate compiles no token_diff bytecode to disk. All gate runs above
+# imported token_diff, and the redirect captures any cache write it makes
+# (interpreter startup caches its own stdlib modules there too, so the
+# assertion targets the module, not the directory).
+if find "$TMP/pyc" -name 'token_diff*' 2>/dev/null | grep -q .; then
+  echo "FAIL: gate wrote token_diff bytecode under $TMP/pyc"; fails=$((fails+1))
+else
+  echo "PASS: gate writes no token_diff bytecode"
+fi
+
+# 13. pattern import failure fails open: hooks copied without the sibling
+# skills tree still deliver the shape finding, and only skip the token check
+mkdir -p "$TMP/lonehooks"
+cp "$REPO/plugins/harness/hooks/commit-shape-gate.sh" "$REPO/plugins/harness/hooks/commit-shape-gate.py" "$TMP/lonehooks/"
+out="$(payload 'git commit -m both' "$TMP" | "$TMP/lonehooks/commit-shape-gate.sh")"
+check "lone gate still names the shape" "required per the oracle-ladder skill" "$out"
+case "$out" in *"Token diff"*) echo "FAIL: lone gate claimed the token check: $out"; fails=$((fails+1)) ;; *) echo "PASS: lone gate skips only the token check" ;; esac
 
 echo "---"
 [ "$fails" -eq 0 ] && echo "ALL PASS" || echo "$fails FAILURE(S)"
