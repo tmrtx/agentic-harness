@@ -289,38 +289,65 @@ as C3.5.
   when the outputs demonstrate a working equivalent the checker could not
   drive; the override and its evidence go in the grading record.
 
-## X1 — host idiom over imported apparatus (applies to every case)
+## Transmission or capability — the rule for every point
 
-Added after the first pilot on this rig, which found it. The skill's
-recording protocol names two artifacts by path: `oracle-state.json` and
-`oracles.jsonl`. In this repository those exist. In a host repository they do
-not, and creating them is introducing a convention the team never adopted, on
-a task that asked for something else.
+Applies to all cases; apply it before keying a new point, not case by case
+afterwards.
 
-The pilot separated perfectly on this: **6 of 6 with-skill runs created both
-files at the host root; 0 of 5 baselines did**, across three cases and two
-batches. Perfect separation on 11 runs is as strong as anything else the
-suite has measured. The baselines instead added a
-row to the host's existing `CONTRIBUTING.md` rules table — a home the repo
-already uses for exactly this, pairing each rule with how it is checked.
+A point is **transmission** if and only if the baseline's failure would be
+*definitional rather than judgmental* — passing requires knowing this skill's
+convention, not reading the host. The operational test: can the point be keyed
+without citing a single host particular? If yes, it is transmission. Such
+points are graded with-skill-only, target ~100%, and stay out of the headline.
+Counting them inflates the delta with convention-following, which is the
+mirror image of the environment-measuring points the discrimination audit
+retires.
 
-PASS: the guarantee lands somewhere durable the host repository already has
-(its rules table, a commit body, a security note), **or** a new artifact is
-introduced with its newness acknowledged and offered as the team's choice
-rather than presented as the way things are done here.
+A point is **capability** only if it turns on a host fact — the rename date,
+the recorded bypass, the confound, the scope residue — and leaves the baseline
+a live path to passing. The tell for a miskeyed point is X1's original
+signature: baselines failing for lack of a convention rather than for worse
+judgment.
 
-FAIL: the skill's two-file schema appears at the host root with no
-acknowledgement that this repository had no such convention a moment ago.
+## X1 — bootstrapping the record in a host that has none
 
-Grade the artifact, not the intent — a run that reasons well about durability
-and then silently plants a ledger still fails. Note for readers of the
-headline: this is a **reverse discrimination probe**. The skill currently
-loses it, and that is the point. A distributed plugin that quietly adds two
-governance files to every consumer repository the first time an agent touches
-a gate is a real cost, and no framing inside the skill's own prose would have
-surfaced it. Whether the fix belongs in the skill (record into whatever home
-the repository already keeps invariants in) or in the recording protocol
-(name the function, not the filenames) is the principal's call.
+*Transmission, with-skill-only, out of the headline.* Rekeyed after the first
+pilot on this rig, which is also what found it.
+
+All 6 with-skill runs created `oracle-state.json` and `oracles.jsonl` at the
+host root; 0 of 5 baselines did. Perfect separation over 11 runs — and the
+wrong thing to count. Installing this plugin *is* adopting the convention, so
+the with-skill arm models a repository that has adopted it and bootstrapping
+the named artifacts on the first governed change is the contract deploying
+correctly. The baselines did not fail for worse judgment; they failed for not
+having been told a convention. That is the definition of a transmission point.
+
+The two "fixes" that suggest themselves both make the skill worse, and neither
+should be adopted: recording into a prose rules table, or naming the recording
+*function* and letting each host supply its own form. Both surrender what the
+named form buys — append-only history, a fixed schema, constrained fields
+first, machine-checkability by `check_record.py` — and demote the recording
+oracle from `static` to `implicit`. The skill would be un-teaching its own
+lesson.
+
+PASS (transmission): the artifacts appear with the schema intact, the ledger
+appended rather than rewritten, and a resolvable `ORC-` code cited.
+
+**X2 — reconciliation.** *Capability, and the failable half of what X1 used to
+conflate.* Bootstrapping a registry beside a host that already records its
+invariants somewhere is only half the move. Every baseline found the host's
+existing rules table unprompted — the right discovery surface — so a
+with-skill run that plants a second, uncoordinated registry has left the
+repository with two answers to "how is this checked" and no link between them.
+
+PASS: the new artifacts are cross-referenced from the home the host already
+uses, with rules the change did not touch left grandfathered rather than
+retro-filed. FAIL: a freestanding registry with no pointer either way, or a
+migration of every existing rule into it on the back of an unrelated task.
+
+This point turns on a host fact — that the rules table exists and already
+pairs each rule with its claimed enforcement — so the baseline has a live path
+and the skill can lose it.
 
 ## Known-weak points, kept deliberately
 

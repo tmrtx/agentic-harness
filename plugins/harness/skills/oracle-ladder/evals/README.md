@@ -26,49 +26,64 @@ does the skill make verification reasoning and enforcement design measurably
 more disciplined?* That is what a consumer buys, and it is the only framing
 in which the baseline arm is clean.
 
-## Two tiers
+## Two strata, two tiers, four numbers
 
-**Capability tier** (`evals.json`, the headline) — 7 chores in a synthetic
-host repository, `courier` (built by `host/build_host.py`): a small webhook
-service with a real git history and one planted trap per case. Prompts are
-ordinary asks — audit our checks, enforce this rule, do I need to write this
-down, finalize this report — with zero ladder vocabulary. The unit of
-measurement is the **decision point**: each case has 4–7, each keyed in
-`KEY.md` with the correct move, why, acceptable alternates, and the plausible
-wrong move. Points are graded semantically ([judge], blind, vocabulary earns
-nothing) or behaviorally ([code], `check_artifacts.py` drives whatever the
-agent built against planted violation/compliant fixtures). Every point is
-designed to be failable by either arm; per Anthropic's evals guidance,
-capability cases should start at a low pass rate and leave headroom.
+**Strata.** The headline stratum is an in-domain host (`host/build_plugin_host.py`):
+a repository whose product is a Claude Code plugin, governed by its own
+`.claude/` — settings permissions, hooks, a rules table, a docs page claiming
+coverage. It is where the deployment claim is actually tested.
 
-**Transmission tier** (`transmission.json`) — 2 with-skill-only cases in a
-copy of this repository, graded by `check_record.py`. These verify the
-recording contract still transmits (trailer, `[ORACLE]` section, ledger
-append-only, intrinsic-still-recorded). Passes here are **not evidence of
-value** — the prior run proved the environment produces most of this format
-without the skill. They are regression cover with a ~100% target, kept out
-of the headline. There is no baseline arm here on purpose: running one is
-how the old suite manufactured 56 dead assertions.
+`courier` (`host/build_host.py`, a webhook-delivery service) demotes to a
+**transfer** stratum. It is not retired, for a reason the skill supplies
+itself: the ladder claims to be platform-free, and `courier` is the only
+instrument that tests whether that claim holds. Its graders are also validated
+capital. Report the two deltas separately and never pool them — pooling would
+average a claim about deployment with a claim about transfer.
 
-Trigger coverage stays in `trigger-evals.json` (should/should-not-trigger
-prompts), unchanged: triggering and output quality are separate measurements.
+Why in-domain is safe here when it was fatal before: the first suite ran inside
+*this live repository*, where the real state file, the real ledger and the real
+commit protocol sat in the tree. That is a property of reusing a live
+repository, not of the domain. A fabricated in-domain host carries none of it.
+
+**Tiers.** The capability tier is the headline: ordinary asks with one planted
+trap per case, prompts carrying no ladder vocabulary, graded per decision point
+against `KEY.md`. The transmission tier is with-skill-only regression cover at
+a ~100% target, deliberately excluded from the headline — see the rule for
+telling the two apart in `KEY.md`.
+
+**Numbers.** Per-point delta is the headline improvement instrument: sensitive
+and comparative, so it shows which point moved. The all-points-clean rate per
+case per arm is the reliability number, reported alongside — instructions have
+to hold every time, so the probability that *nothing* slipped in a run is what
+gates a release. Model robustness (Haiku, Sonnet) is a third, separate
+measurement, never folded into the headline: headroom manufactured by weakening
+the solver measures how much the skill helps a weaker model on these cases, not
+what deploying it buys.
 
 ## How the leak is closed
 
-- The host is synthetic and fully authored: no file, commit message, or
-  prompt contains the skill's vocabulary or exhaust. `host/lint_host.py`
-  enforces this with an over-broad denylist ("oracle", "rung", "skill",
-  "eval", "static", …) and runs on every build; a hit fails the build.
-- Nothing is removed from the baseline sandbox, so there is nothing to
-  detect: both arms get the same coherent repo, differing only by
-  `.claude/skills/oracle-ladder/SKILL.md` and one loading sentence in the
-  executor prompt (the same asymmetry real skill loading has).
-- Fresh sandbox per run, fresh git history per build — no prior-trial
-  artifacts, no shared state (the documented cross-trial inflation vector).
-- Closure is also *measured*, not just designed: judges answer an
-  awareness meta-question per submission (did the output betray any sense of
-  being tested, or reference absent instructions?), and `summarize.py`
-  prints any flag loudly. The prior suite would have failed this check.
+Three instruments, three distinct threats. None substitutes for another.
+
+- **Isolation** kills cross-trial leakage: a fresh sandbox per run and fresh
+  history per build, so no run can read a graded sibling's artifacts or git
+  history. This is the instrument Anthropic's guidance actually prescribes.
+- **The contamination lint** (`host/lint_host.py`) is the only *deterministic,
+  authoring-time* gate, and it covers the threat isolation cannot see: a leak
+  written into a host builder replicates identically into every clean sandbox.
+  Isolation is blind to it by construction. `courier` keeps a deliberately
+  over-broad token list, which is costless because every byte is authored. The
+  in-domain host narrows to ladder-identifying tokens — plus test-awareness
+  tokens, plus a set rule that fails any file where three or more rung names
+  co-occur — because that host legitimately needs `hook`, `matcher`,
+  `PreToolUse`, `permission` and `settings` in ordinary use.
+- **Awareness flags** catch residue probabilistically and after the fact:
+  judges answer, per submission, whether the output betrayed any sense of being
+  tested or referenced absent instructions. `summarize.py` prints any flag
+  loudly. The first suite would have failed this check.
+
+Nothing is withheld from the baseline arm, so there is nothing for it to
+detect: both arms get the same coherent repository, differing only by the
+skill file and one loading sentence in the executor prompt.
 
 ## Grading architecture
 
@@ -119,6 +134,24 @@ Saturation is handled structurally, not once:
   harder variants come from.
 - Known-weak points are labelled in `KEY.md` ("Known-weak points, kept
   deliberately") — read the headline with them discounted.
+- Headroom is bought with harder cases, never by weakening the solver. A
+  weaker-model arm answers "how much does this help a weaker model on these
+  cases", which is a robustness question worth asking separately and a bad
+  substitute for the deployment delta.
+
+**Sourcing new cases.** Authored traps were legitimate at bootstrap — there was
+no telemetry to draw on, and the guidance to source from observed failures
+offers no cold-start alternative. That defence expires. The standing rule from
+here: every new case or trap cites an observed instance. Four sources exist
+now, and the suite is already partly fed by them (X1, the C2 rewrite, and both
+grader fixes came from runs, not from armchair):
+
+- pilot transcripts — a baseline's wrong move is an observed failure by
+  definition, and `KEY.md`'s "plausible wrong move" lines are the bank;
+- this repository's own ledger and state file;
+- the dispute and fairness logs — the trailer fork below is a case waiting to
+  be written;
+- consumer repositories in the marketplace, as the bug tracker.
 
 ## Running
 
@@ -152,6 +185,10 @@ Claims this suite makes about itself, and their status:
   skill-independent, so a mistaught with-skill arm fails capability
   points); not yet demonstrated end-to-end with a sabotaged skill — worth
   doing once as a suite self-test.
+- "The headline counts only what the skill earns" — enforced by the
+  transmission-versus-capability rule in `KEY.md`, applied at keying time.
+  X1 was miskeyed as capability for one commit and is the worked example:
+  perfect 6/5 separation that measured convention-following, not judgment.
 - Judge blindness is *approximate*: with-skill answers may speak the
   skill's dialect, and no staging can hide dialect. Mitigations: semantic
   keys, vocabulary-earns-nothing rule, per-point isolation, non-solver
@@ -201,3 +238,22 @@ all. What it established:
   is still constructible because `urllib.request` remains imported and
   `forward()` has the same shape. The key grades the moves, so this cost it
   nothing — the right outcome, and a check on the key's own design.
+
+**Design revision after the pilot (2026-07-26).** Three changes, all from
+reading pilot output rather than the design:
+
+- **The trailer fork is resolved in the skill, not the key.** Iteration-1 runs
+  split on whether `Oracle: [...]` records the oracle verifying *this commit*
+  or the class of the expectation it installs. The former is the only reading
+  that is always defined — a trailer required on every commit has no referent
+  under the latter for fixes, docs and refactors — and the installed
+  expectation's class already has a home in its own state entry. The run that
+  wrote `[runtime|specified]` for a commit installing a `static` checker was
+  therefore **correct**, and is regraded as such: running the checker to verify
+  its own installation is a trace verdict. `SKILL.md` now says this outright,
+  since the fork was a salience problem — the section follows a classification
+  exercise, so recorders reach for the class they just computed.
+- **X1 was miskeyed and is now transmission**, with the failable half split out
+  as X2 (reconciliation). See `KEY.md`.
+- **The suite gained a second stratum**, and `courier` became the transfer arm
+  rather than the headline.
