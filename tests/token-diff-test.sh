@@ -95,10 +95,12 @@ printf 'code v2' > "$R/src/app.py"
 g add .
 g rm -q skills/a/f4.md
 
-# 1. explicit paths: aggregates per-file deltas across modified/added/deleted
-out="$(cd "$R" && python3 "$SCRIPT" skills/a/f1.md skills/a/f2.md skills/a/f3.md skills/a/f4.md 2>/dev/null)"; rc=$?
+# 1. explicit paths: aggregates per-file deltas across modified/added/deleted;
+#    stderr carries the per-file breakdown
+out="$(cd "$R" && python3 "$SCRIPT" skills/a/f1.md skills/a/f2.md skills/a/f3.md skills/a/f4.md 2>"$TMP/err1")"; rc=$?
 check_line "explicit paths measure the staged diff" "Token diff: +3/-4 (net -1, claude-opus-5)" "$out"
 check_rc "explicit paths exit 0" 0 "$rc"
+grep -q 'skills/a/f1.md +2' "$TMP/err1" && echo "PASS: stderr breaks down per-file deltas" || { echo "FAIL: stderr breakdown missing: $(cat "$TMP/err1")"; fails=$((fails+1)); }
 
 # 2. no paths: the set derives from the staged diff, non-steering files excluded
 out="$(cd "$R" && python3 "$SCRIPT" 2>/dev/null)"
@@ -121,18 +123,27 @@ out="$(cd "$R" && python3 "$SCRIPT" 2>/dev/null)"
 check_line "rename counts source and destination" "Token diff: +5/-5 (net +0, claude-opus-5)" "$out"
 g reset -q --hard HEAD
 
+# 4c. after the commit, a bare run must not print a paste-able falsehood:
+#     the staged diff is empty, so it exits 1 and points at --base/--target
+out="$(cd "$R" && python3 "$SCRIPT" 2>"$TMP/err4c")"; rc=$?
+check_rc "post-commit bare run exits 1" 1 "$rc"
+[ -z "$out" ] && echo "PASS: post-commit bare run prints no line" || { echo "FAIL: post-commit bare run printed: $out"; fails=$((fails+1)); }
+grep -q -- '--base <sha>^ --target <sha>' "$TMP/err4c" && echo "PASS: post-commit bare run names the recovery" || { echo "FAIL: recovery hint missing: $(cat "$TMP/err4c")"; fails=$((fails+1)); }
+
 # 5. a named path absent on both sides aborts: a wrong list must not read
 #    as a measured zero
 out="$(cd "$R" && python3 "$SCRIPT" skills/a/nope.md 2>/dev/null)"; rc=$?
 check_prefix "absent path degrades to unavailable" "Token diff: unavailable (" "$out"
 check_rc "absent path exits 2" 2 "$rc"
 
-# 6. nothing steering in the diff: derivation aborts rather than print +0/-0
+# 6. nothing steering in the staged diff: no paste-able line at all - exit 1
+#    with the recovery hint, never a figure and never `unavailable`
 printf 'code v3' > "$R/src/app.py"
 g add src/app.py
-out="$(cd "$R" && python3 "$SCRIPT" 2>/dev/null)"; rc=$?
-check_prefix "steering-free diff degrades to unavailable" "Token diff: unavailable (" "$out"
-check_rc "steering-free diff exits 2" 2 "$rc"
+out="$(cd "$R" && python3 "$SCRIPT" 2>"$TMP/err6")"; rc=$?
+check_rc "steering-free diff exits 1" 1 "$rc"
+[ -z "$out" ] && echo "PASS: steering-free diff prints no line" || { echo "FAIL: steering-free diff printed: $out"; fails=$((fails+1)); }
+grep -q -- '--base' "$TMP/err6" && echo "PASS: steering-free diff names the recovery" || { echo "FAIL: recovery hint missing: $(cat "$TMP/err6")"; fails=$((fails+1)); }
 g reset -q -- src/app.py
 g checkout -q -- src/app.py
 

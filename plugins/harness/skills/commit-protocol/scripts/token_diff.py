@@ -172,21 +172,28 @@ def main():
         print("token_diff.py: not inside a git work tree", file=sys.stderr)
         return 1
 
-    headers = resolve_credentials()
-    if headers is None:
-        print("Token diff: unavailable (no Anthropic API credentials: "
-              "set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN, or `ant auth login`)")
-        return 2
-
-    counter = Counter(
-        args.model, headers,
-        os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
-    )
     added = removed = 0
     try:
         paths = args.paths or derive_paths(args.base, args.target)
         if not paths:
-            raise Unavailable("no steering-pattern files in the diff")
+            # An empty derivation is a selection problem, not a measurement:
+            # printing a line here would record a falsehood about a commit
+            # that did change steering text. Exit 1 - nothing paste-able.
+            scope = ("%s..%s" % (args.base, args.target) if args.target
+                     else "staged")
+            print("token_diff.py: no steering-pattern files in the %s diff; "
+                  "stage the changes first, or measure an existing commit "
+                  "with --base <sha>^ --target <sha>" % scope, file=sys.stderr)
+            return 1
+        headers = resolve_credentials()
+        if headers is None:
+            raise Unavailable("no Anthropic API credentials: set "
+                              "ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN, "
+                              "or `ant auth login`")
+        counter = Counter(
+            args.model, headers,
+            os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
+        )
         for path in paths:
             before = git_blob("%s:%s" % (args.base, path))
             target_spec = "%s:%s" % (args.target, path) if args.target else ":%s" % path
