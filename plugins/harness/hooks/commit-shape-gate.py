@@ -45,8 +45,9 @@ try:
             problems.append("it changes steering text (" + steering + ") without "
                             "the `Token diff:` line the commit-protocol skill "
                             "requires in [CHANGE]; compute it with that skill's "
-                            "scripts/token_diff.py or record "
-                            "`Token diff: unavailable (<reason>)`")
+                            "scripts/token_diff.py --base HEAD^ --target HEAD "
+                            "(the commit is already made, so the staged diff is "
+                            "empty) or record `Token diff: unavailable (<reason>)`")
     except Exception:
         pass
 

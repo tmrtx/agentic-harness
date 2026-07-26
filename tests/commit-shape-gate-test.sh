@@ -59,9 +59,11 @@ fcommit() { # path content message
 SHAPE="$(printf 'x[y]: t\n\n[ORACLE]\nm.\n\nOracle: [static|specified]')"
 
 # 6. skill edit with commit shape but no token line: feedback names the line
+#    and the invocation that measures a commit already made
 fcommit "plugins/harness/skills/foo/SKILL.md" "steer" "$SHAPE"
 out="$(payload 'git commit -m skill' "$TMP" | "$GATE")"
 check "steering commit without token line yields feedback" "Token diff" "$out"
+check "feedback names the post-commit invocation" "--base HEAD^ --target HEAD" "$out"
 
 # 7. CLAUDE.md edit without token line: feedback names the line
 fcommit "CLAUDE.md" "steer more" "$SHAPE"
@@ -104,7 +106,7 @@ fi
 # 13. pattern import failure fails open: hooks copied without the sibling
 # skills tree still deliver the shape finding, and only skip the token check
 mkdir -p "$TMP/lonehooks"
-cp "$REPO/plugins/harness/hooks/commit-shape-gate.sh" "$REPO/plugins/harness/hooks/commit-shape-gate.py" "$TMP/lonehooks/"
+cp -R "$REPO/plugins/harness/hooks/." "$TMP/lonehooks/"
 out="$(payload 'git commit -m both' "$TMP" | "$TMP/lonehooks/commit-shape-gate.sh")"
 check "lone gate still names the shape" "required per the oracle-ladder skill" "$out"
 case "$out" in *"Token diff"*) echo "FAIL: lone gate claimed the token check: $out"; fails=$((fails+1)) ;; *) echo "PASS: lone gate skips only the token check" ;; esac
