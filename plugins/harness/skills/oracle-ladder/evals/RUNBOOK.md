@@ -1,5 +1,20 @@
 # Runbook — oracle-ladder eval suite
 
+**Two strata.** The headline stratum is the in-domain host: build with
+`host/build_plugin_host.py`, cases in `evals-plugin.json`, key in
+`KEY-plugin.md`, case ids `P0`–`P5`, commit author `Dev <dev@quillpack.local>`.
+The transfer stratum is `courier`: `host/build_host.py`, `evals.json`,
+`KEY.md`, ids `C0`–`C6`, author `Dev <dev@courier.local>`. Pass
+`--tier plugin` to `collect_outputs.py` and `stage_blind.py`, and a second
+positional `plugin` to `summarize.py`; the default is `courier`, so every
+command below works unchanged for the transfer arm. Report the two deltas
+separately — never pool them.
+
+`courier` code-grades cases 1, 4 and 5 via `check_artifacts.py`. The plugin
+stratum has no code grader yet: all 37 of its points are judge-graded, which
+is a known gap, not a design choice. A `check_plugin_artifacts.py` driving the
+shipped hook against planted payloads is the obvious next build.
+
 Agent-driven orchestration. `$EVALS` is this directory; `$WS` is a scratch
 workspace (e.g. the session scratchpad); `$SKILL` is
 `plugins/harness/skills/oracle-ladder/SKILL.md` at the revision under test.

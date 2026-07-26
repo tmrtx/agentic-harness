@@ -19,10 +19,15 @@ from pathlib import Path
 
 EVALS_DIR = Path(__file__).resolve().parent
 
+TIERS = {
+    "courier": ("evals.json", "KEY.md"),
+    "plugin": ("evals-plugin.json", "KEY-plugin.md"),
+}
 
-def key_excerpts() -> dict[str, str]:
-    """Map decision-point id -> its KEY.md entry (ranges like C1.1–C1.3 expand)."""
-    text = (EVALS_DIR / "KEY.md").read_text()
+
+def key_excerpts(key_name: str) -> dict[str, str]:
+    """Map decision-point id -> its key entry (ranges like C1.1-C1.3 expand)."""
+    text = (EVALS_DIR / key_name).read_text()
     blocks: dict[str, str] = {}
     current_ids: list[str] = []
     current: list[str] = []
@@ -32,11 +37,11 @@ def key_excerpts() -> dict[str, str]:
             blocks[cid] = "\n".join(current).strip()
 
     for line in text.splitlines():
-        if line.startswith("**C"):
+        if re.match(r"\*\*[CPX]\d", line):
             flush()
-            header_ids = re.findall(r"C\d+\.\d+", line)
+            header_ids = re.findall(r"[CPX]\d+\.\d+", line)
             expanded = list(header_ids)
-            m = re.search(r"(C(\d+)\.(\d+))[–-](C\2\.(\d+))", line)
+            m = re.search(r"([CPX](\d+)\.(\d+))[\u2013-]([CPX]?\2\.(\d+))", line)
             if m:
                 lo, hi = int(m.group(3)), int(m.group(5))
                 expanded = [f"C{m.group(2)}.{i}" for i in range(lo, hi + 1)]
@@ -53,14 +58,17 @@ def key_excerpts() -> dict[str, str]:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("iteration", type=Path)
+    ap.add_argument("--tier", choices=sorted(TIERS), default="courier",
+                    help="stratum: courier (transfer) or plugin (headline)")
     ap.add_argument("--pristine", default="",
                     help="path to a pristine without-arm sandbox, given to judges as repo context")
     args = ap.parse_args()
     it = args.iteration
 
-    evals = json.loads((EVALS_DIR / "evals.json").read_text())
+    spec_name, key_name = TIERS[args.tier]
+    evals = json.loads((EVALS_DIR / spec_name).read_text())
     by_id = {e["id"]: e for e in evals["evals"]}
-    keys = key_excerpts()
+    keys = key_excerpts(key_name)
 
     blind = it.parent / f"_blind-{it.name}"
     if blind.exists():

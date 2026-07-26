@@ -16,6 +16,11 @@ from pathlib import Path
 
 EVALS_DIR = Path(__file__).resolve().parent
 
+TIERS = {
+    "courier": ("evals.json", "KEY.md"),
+    "plugin": ("evals-plugin.json", "KEY-plugin.md"),
+}
+
 
 def sh(cwd, *cmd):
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True).stdout
@@ -26,9 +31,11 @@ def main():
     ap.add_argument("--sandbox", type=Path, required=True)
     ap.add_argument("--eval-id", type=int, required=True)
     ap.add_argument("--dest", type=Path, required=True, help="run dir; outputs/ created inside")
+    ap.add_argument("--tier", choices=sorted(TIERS), default="courier",
+                    help="stratum: courier (transfer) or plugin (headline)")
     args = ap.parse_args()
 
-    spec = next(e for e in json.loads((EVALS_DIR / "evals.json").read_text())["evals"]
+    spec = next(e for e in json.loads((EVALS_DIR / TIERS[args.tier][0]).read_text())["evals"]
                 if e["id"] == args.eval_id)
     out = args.dest / "outputs"
     out.mkdir(parents=True, exist_ok=True)

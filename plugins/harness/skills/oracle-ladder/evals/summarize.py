@@ -20,12 +20,18 @@ Per iteration (written to discrimination.md and stdout):
 Usage: python3 summarize.py <iteration-dir>
 Then:  python3 -m scripts.aggregate_benchmark <iteration-dir> (from skill-creator)
 """
+import argparse
 import json
 import sys
 from collections import defaultdict
 from pathlib import Path
 
 EVALS_DIR = Path(__file__).resolve().parent
+
+TIERS = {
+    "courier": ("evals.json", "KEY.md"),
+    "plugin": ("evals-plugin.json", "KEY-plugin.md"),
+}
 
 
 def load_judge(it: Path, manifest: dict, eval_dir: str, config: str, run: str):
@@ -39,7 +45,8 @@ def load_judge(it: Path, manifest: dict, eval_dir: str, config: str, run: str):
 
 def main():
     it = Path(sys.argv[1])
-    evals = json.loads((EVALS_DIR / "evals.json").read_text())
+    tier = sys.argv[2] if len(sys.argv) > 2 else "courier"
+    evals = json.loads((EVALS_DIR / TIERS[tier][0]).read_text())
     by_id = {e["id"]: e for e in evals["evals"]}
     manifest_path = it.parent / f".blind-manifest-{it.name}.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
