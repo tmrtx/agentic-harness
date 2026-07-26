@@ -12,7 +12,7 @@ Enable verification of the work and provide specific feedback.
 A pull request description — the **walkthrough** — that:
 - Formulates the problem that PR aims to address.
 - Documents the process followed to produce the PR.
-  * The walkthrough should document divergences encountered, i.e. "what we said we'd do" vs "what we did".
+  * The walkthrough should document divergences encountered — including feedback rounds and dead ends — i.e. "what we said we'd do" vs "what we did".
 - Highlights the key events.
 
 ## Why This Matters
@@ -20,8 +20,9 @@ Code review is cognitively expensive. A walkthrough reduces the burden by pre-or
 
 ## Key Properties
 - The walkthrough must be **hermetic** - it stands alone for a reader with zero prior context: every motivation, decision, and number lives IN the text. External links are allowed only for genuine dependencies (e.g. the repo a PR consumes) or out-of-scope tracking issues - never as required reading
-- The walkthrough should be **navigable** - file paths and line numbers enable jumping to specific changes
+- The walkthrough should be **navigable** - file paths and line numbers enable jumping to specific changes; cite commits by subject, not SHA (folding retires SHAs)
 - The walkthrough should be **honest** - if something didn't go as planned, say so
+- The walkthrough is the **journey's only home** - the commit stack carries the resulting state, nothing else (`commit-protocol`)
 
 ## Anti-patterns
 - Writing documentation that requires reading all the code to understand
