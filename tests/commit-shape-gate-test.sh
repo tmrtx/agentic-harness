@@ -19,6 +19,8 @@ check() { # name expected_fragment actual_out
 }
 
 git -C "$TMP" init -q
+PYC="$REPO/plugins/harness/skills/commit-protocol/scripts/__pycache__"
+PYC_PRE="$([ -d "$PYC" ] && echo 1 || echo 0)"
 
 # 1. non-commit command: silent
 out="$(payload 'ls -la' "$TMP" | "$GATE")"
@@ -87,6 +89,10 @@ fcommit "commands/do.md" "steer command" "no shape at all"
 out="$(payload 'git commit -m both' "$TMP" | "$GATE")"
 check "shapeless steering commit names the shape" "required per the oracle-ladder skill" "$out"
 check "shapeless steering commit also names the token line" "Token diff" "$out"
+
+# 12. the gate leaves no bytecode behind in the plugin tree
+PYC_POST="$([ -d "$PYC" ] && echo 1 || echo 0)"
+[ "$PYC_POST" = "$PYC_PRE" ] && echo "PASS: gate writes no bytecode into the plugin tree" || { echo "FAIL: gate created $PYC"; fails=$((fails+1)); }
 
 echo "---"
 [ "$fails" -eq 0 ] && echo "ALL PASS" || echo "$fails FAILURE(S)"

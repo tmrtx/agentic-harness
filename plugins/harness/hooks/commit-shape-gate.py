@@ -1,5 +1,7 @@
 import json, os, re, subprocess, sys, time
 
+sys.dont_write_bytecode = True  # importing token_diff must not write __pycache__ into the plugin tree
+
 try:
     payload = json.load(sys.stdin)
     if payload.get("tool_name") != "Bash":
