@@ -37,12 +37,15 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 class H(BaseHTTPRequestHandler):
     def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers.get("content-length", 0))))
         with open(sys.argv[2], "a") as log:
-            log.write("AUTH=%s BETA=%s KEY=%s\n" % (
+            log.write("AUTH=%s BETA=%s KEY=%s PATH=%s VER=%s MODEL=%s\n" % (
                 self.headers.get("authorization", ""),
                 self.headers.get("anthropic-beta", ""),
-                self.headers.get("x-api-key", "")))
-        body = json.loads(self.rfile.read(int(self.headers.get("content-length", 0))))
+                self.headers.get("x-api-key", ""),
+                self.path,
+                self.headers.get("anthropic-version", ""),
+                body.get("model", "")))
         content = body["messages"][0]["content"]
         if isinstance(content, list):
             content = "".join(block.get("text", "") for block in content)
@@ -108,9 +111,14 @@ check_line "derived paths match and filter steering text" "Token diff: +3/-4 (ne
 
 g commit -qm change
 
-# 3. an unchanged file contributes zero; --model is named in the line
+# 3. an unchanged file contributes zero; --model is named in the line AND
+#    reaches the endpoint, on the documented path with the pinned API version
 out="$(cd "$R" && python3 "$SCRIPT" --model test-model skills/a/f1.md 2>/dev/null)"
 check_line "unchanged file is zero, model override named" "Token diff: +0/-0 (net +0, test-model)" "$out"
+hdr="$(tail -1 "$TMP/hdr.log")"
+case "$hdr" in *"PATH=/v1/messages/count_tokens "*) echo "PASS: request hits the count_tokens path" ;; *) echo "FAIL: request path: <$hdr>"; fails=$((fails+1)) ;; esac
+case "$hdr" in *"VER=2023-06-01 "*) echo "PASS: anthropic-version pinned" ;; *) echo "FAIL: anthropic-version: <$hdr>"; fails=$((fails+1)) ;; esac
+case "$hdr" in *"MODEL=test-model"*) echo "PASS: the named model is the counting model" ;; *) echo "FAIL: model in body: <$hdr>"; fails=$((fails+1)) ;; esac
 
 # 4. a recorded figure re-derives from history with no path list (ORC-5)
 out="$(cd "$R" && python3 "$SCRIPT" --base HEAD^ --target HEAD 2>/dev/null)"
