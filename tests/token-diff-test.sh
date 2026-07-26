@@ -119,6 +119,7 @@ hdr="$(tail -1 "$TMP/hdr.log")"
 case "$hdr" in *"PATH=/v1/messages/count_tokens "*) echo "PASS: request hits the count_tokens path" ;; *) echo "FAIL: request path: <$hdr>"; fails=$((fails+1)) ;; esac
 case "$hdr" in *"VER=2023-06-01 "*) echo "PASS: anthropic-version pinned" ;; *) echo "FAIL: anthropic-version: <$hdr>"; fails=$((fails+1)) ;; esac
 case "$hdr" in *"MODEL=test-model"*) echo "PASS: the named model is the counting model" ;; *) echo "FAIL: model in body: <$hdr>"; fails=$((fails+1)) ;; esac
+case "$hdr" in *"KEY=test-key"*) echo "PASS: the api key rides x-api-key" ;; *) echo "FAIL: x-api-key header: <$hdr>"; fails=$((fails+1)) ;; esac
 
 # 4. a recorded figure re-derives from history with no path list (ORC-5)
 out="$(cd "$R" && python3 "$SCRIPT" --base HEAD^ --target HEAD 2>/dev/null)"
