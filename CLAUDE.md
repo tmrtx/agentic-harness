@@ -25,4 +25,12 @@ methodology frontier.
 
 This repository installs its own plugin (`harness@agentic-harness`, GitHub
 source), so the governance policies and workflow skills defined here apply when
-contributin.
+contributing.
+
+## Agent branch history
+
+On the agent's own unmerged `claude/*` branch, rewriting history is authorized
+and expected — `git commit --amend`, `git commit --fixup` + `git rebase
+--autosquash`, `git reset --soft` + recommit, and `git push --force-with-lease`
+to that same branch — per the harness `commit-protocol` stack regulation.
+Never rewrite the default branch, merged history, or another author's branch.

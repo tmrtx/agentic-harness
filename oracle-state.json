@@ -19,5 +19,12 @@
     "since": "2026-07-25",
     "subject": "every commit's shape: the [ORACLE] section and the Oracle trailer",
     "mechanism": "plugins/harness/hooks/commit-shape-gate.sh via PostToolUse on Bash; tested by tests/commit-shape-gate-test.sh"
+  },
+  "ORC-7": {
+    "oracle-class": "static",
+    "ground-truth": "specified",
+    "since": "2026-07-26",
+    "subject": "the pushed stack's shape: no fixup!/squash!/amend! commit survives in the outgoing range",
+    "mechanism": "plugins/harness/hooks/commit-shape-gate.sh push detector via PostToolUse on Bash; shares the gate and its kill switch with ORC-3; tested by tests/commit-shape-gate-test.sh"
   }
 }

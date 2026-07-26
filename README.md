@@ -61,6 +61,13 @@ First use in a repo triggers a **one-time consent flow**: accept the marketplace
 prompt and the plugin install prompt. Until accepted, the harness skills are absent
 from that user's sessions.
 
+Also copy the `## Agent branch history` section from this repo's `CLAUDE.md`
+into the consumer repo's `CLAUDE.md`, adapting the `claude/*` pattern to the
+repo's agent-branch naming — it is the standing authorization for the folds
+the `commit-protocol` stack regulation mandates, placed where the permission
+classifier reads (`CLAUDE.md`, not plugin skills). Sessions governed by
+explicit permission rules need `allow` rules for the same operations instead.
+
 Per-user opt-out: a user can disable the plugin for themselves without touching the
 shared settings by adding to the repo's `.claude/settings.local.json`:
 

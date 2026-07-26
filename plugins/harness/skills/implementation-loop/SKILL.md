@@ -44,6 +44,8 @@ For each iteration:
 
 **Prefer 20 tiny iterations over 3 medium ones.** Each test run takes seconds. Each debugging session after a big change takes minutes to hours. The math favors many small steps.
 
+Iteration commits are construction state, cheap to make and cheap to drop. Before review, fold them into the reviewable decomposition (`commit-protocol`).
+
 Signs you're doing it right:
 - You run tests after every change.
 - Each change is trivially correct by inspection
