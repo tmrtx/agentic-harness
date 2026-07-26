@@ -29,7 +29,7 @@ Measurement semantics:
   (the endpoint rejects empty content), so single-digit deltas are noise.
 - Counts are model-specific estimates and pinned model IDs keep them
   reproducible, so the line names the model (default: claude-opus-5;
-  override with --model or ANTHROPIC_TOKEN_DIFF_MODEL).
+  override with --model).
 - File contents are sent to the Anthropic API.
 
 Credentials resolve in order: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, an
@@ -152,7 +152,7 @@ def main():
         description="Emit the commit protocol's `Token diff:` line for steering files.",
     )
     parser.add_argument("--model",
-                        default=os.environ.get("ANTHROPIC_TOKEN_DIFF_MODEL", DEFAULT_MODEL))
+                        default=DEFAULT_MODEL)
     parser.add_argument("--base", default="HEAD",
                         help="revision for the before side (default: HEAD)")
     parser.add_argument("--target", default=None,
