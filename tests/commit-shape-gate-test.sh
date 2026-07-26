@@ -98,14 +98,18 @@ out="$(payload 'git commit -m both' "$TMP" | "$GATE")"
 check "shapeless steering commit names the shape" "required per the oracle-ladder skill" "$out"
 check "shapeless steering commit also names the token line" "Token diff" "$out"
 
-# 12. the gate compiles no token_diff bytecode to disk. All gate runs above
-# imported token_diff, and the redirect captures any cache write it makes
-# (interpreter startup caches its own stdlib modules there too, so the
-# assertion targets the module, not the directory).
-if find "$TMP/pyc" -name 'token_diff*' 2>/dev/null | grep -q .; then
-  echo "FAIL: gate wrote token_diff bytecode under $TMP/pyc"; fails=$((fails+1))
+# 12. the gate leaves the plugin tree clean. Run it from a fresh copy with
+# the redirect unset for this one invocation: the outcome itself - no
+# __pycache__ anywhere under the tree the gate lives in - is the assertion,
+# independent of module names and of what past runs left in the real repo.
+mkdir -p "$TMP/plugin"
+cp -R "$REPO/plugins/harness/." "$TMP/plugin/"
+find "$TMP/plugin" -name '__pycache__' -exec rm -rf {} + 2>/dev/null
+payload 'git commit -m skill' "$TMP" | env -u PYTHONPYCACHEPREFIX "$TMP/plugin/hooks/commit-shape-gate.sh" >/dev/null
+if find "$TMP/plugin" -name '__pycache__' | grep -q .; then
+  echo "FAIL: gate wrote bytecode into the plugin tree"; fails=$((fails+1))
 else
-  echo "PASS: gate writes no token_diff bytecode"
+  echo "PASS: gate leaves the plugin tree clean"
 fi
 
 # 13. pattern import failure fails open: hooks copied without the sibling
