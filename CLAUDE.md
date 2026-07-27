@@ -20,9 +20,14 @@ methodology frontier.
 - **Every push to `main` is a release.** Consumers auto-update at their next session start.
   Gate before pushing: `claude plugin validate plugins/harness && claude plugin validate .`
   must exit 0 with only the no-version warning.
+- **The suites under `tests/` are the commit protocol's pre-commit gate here.** Run
+  `tests/commit-shape-gate-test.sh` and `tests/token-diff-test.sh`; each exits non-zero with
+  a count of failing cases. Both drive their subject against fixture repos and a stubbed
+  endpoint, so they need neither credentials nor network — no working environment excuses
+  skipping them.
 
 ## Self-consumption
 
 This repository installs its own plugin (`harness@agentic-harness`, GitHub
 source), so the governance policies and workflow skills defined here apply when
-contributin.
+contributing.
