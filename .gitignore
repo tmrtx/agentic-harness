@@ -4,6 +4,12 @@
 # Editor/tool droppings
 *.log
 
+# Python bytecode. The commit-shape gate imports the token-diff script on every
+# commit (hooks/commit-shape-gate.py), so CPython writes a cache next to that
+# script and every commit here would otherwise leave the tree dirty.
+__pycache__/
+*.pyc
+
 # Local Claude Code state (per-user, never shared)
 .claude/settings.local.json
 

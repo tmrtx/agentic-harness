@@ -33,5 +33,12 @@
     "since": "2026-07-26",
     "subject": "the Token diff figure recorded on a steering-text commit",
     "mechanism": "re-run plugins/harness/skills/commit-protocol/scripts/token_diff.py --base <sha>^ --target <sha>; the file set derives from the commit's diff and the count_tokens endpoint is the reference"
+  },
+  "ORC-6": {
+    "oracle-class": "runtime",
+    "ground-truth": "specified",
+    "since": "2026-07-27",
+    "subject": "the working tree carries no generated artifact after the harness's own tooling runs",
+    "mechanism": "exercise the generator, then `git status --porcelain`; git's documented ignore semantics are the reference"
   }
 }
