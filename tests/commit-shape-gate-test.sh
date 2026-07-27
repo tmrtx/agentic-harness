@@ -45,6 +45,49 @@ gcommit "bad again"
 out="$(payload 'git commit -m bad' "$TMP" | HARNESS_COMMIT_SHAPE_GATE_DISABLE=1 "$GATE")"
 [ -z "$out" ] && echo "PASS: kill switch silences the gate" || { echo "FAIL: kill switch ignored: $out"; fails=$((fails+1)); }
 
+# Steering-text cases: commits that change agent/model-steering files must
+# carry the [CHANGE] section's `Token diff:` line.
+fcommit() { # path content message
+  mkdir -p "$TMP/$(dirname "$1")"
+  printf '%s' "$2" > "$TMP/$1"
+  git -C "$TMP" add "$1"
+  git -C "$TMP" -c user.email=t@t -c user.name=t commit -q -m "$3"
+}
+SHAPE="$(printf 'x[y]: t\n\n[ORACLE]\nm.\n\nOracle: [static|specified]')"
+
+# 6. skill edit with commit shape but no token line: feedback names the line
+fcommit "plugins/harness/skills/foo/SKILL.md" "steer" "$SHAPE"
+out="$(payload 'git commit -m skill' "$TMP" | "$GATE")"
+check "steering commit without token line yields feedback" "Token diff" "$out"
+
+# 7. CLAUDE.md edit without token line: feedback names the line
+fcommit "CLAUDE.md" "steer more" "$SHAPE"
+out="$(payload 'git commit -m claudemd' "$TMP" | "$GATE")"
+check "CLAUDE.md commit without token line yields feedback" "Token diff" "$out"
+
+# 8. steering commit carrying a measured token line: silent
+fcommit "plugins/harness/skills/foo/SKILL.md" "steer v2" \
+  "$(printf 'x[y]: t\n\nToken diff: +12/-3 (net +9, claude-opus-5)\n\n[ORACLE]\nm.\n\nOracle: [static|specified]')"
+out="$(payload 'git commit -m measured' "$TMP" | "$GATE")"
+[ -z "$out" ] && echo "PASS: measured steering commit is silent" || { echo "FAIL: measured steering commit produced output: $out"; fails=$((fails+1)); }
+
+# 9. steering commit recording counting as unavailable: silent
+fcommit "agents/reviewer.md" "steer agent" \
+  "$(printf 'x[y]: t\n\nToken diff: unavailable (no credentials)\n\n[ORACLE]\nm.\n\nOracle: [static|specified]')"
+out="$(payload 'git commit -m unavail' "$TMP" | "$GATE")"
+[ -z "$out" ] && echo "PASS: unavailable-token steering commit is silent" || { echo "FAIL: unavailable-token steering commit produced output: $out"; fails=$((fails+1)); }
+
+# 10. non-steering commit without token line: silent
+fcommit "src/app.py" "print('hi')" "$SHAPE"
+out="$(payload 'git commit -m code' "$TMP" | "$GATE")"
+[ -z "$out" ] && echo "PASS: non-steering commit needs no token line" || { echo "FAIL: non-steering commit produced output: $out"; fails=$((fails+1)); }
+
+# 11. shapeless steering commit: both findings arrive in one message
+fcommit "commands/do.md" "steer command" "no shape at all"
+out="$(payload 'git commit -m both' "$TMP" | "$GATE")"
+check "shapeless steering commit names the shape" "required per the oracle-ladder skill" "$out"
+check "shapeless steering commit also names the token line" "Token diff" "$out"
+
 echo "---"
 [ "$fails" -eq 0 ] && echo "ALL PASS" || echo "$fails FAILURE(S)"
 exit "$fails"

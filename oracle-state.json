@@ -17,7 +17,21 @@
     "oracle-class": "static",
     "ground-truth": "specified",
     "since": "2026-07-25",
-    "subject": "every commit's shape: the [ORACLE] section and the Oracle trailer",
+    "subject": "every commit's shape: the [ORACLE] section, the Oracle trailer, and the Token diff line on steering-text commits",
     "mechanism": "plugins/harness/hooks/commit-shape-gate.sh via PostToolUse on Bash; tested by tests/commit-shape-gate-test.sh"
+  },
+  "ORC-4": {
+    "oracle-class": "runtime",
+    "ground-truth": "specified",
+    "since": "2026-07-26",
+    "subject": "the token-diff script's behavior",
+    "mechanism": "tests/token-diff-test.sh"
+  },
+  "ORC-5": {
+    "oracle-class": "runtime",
+    "ground-truth": "derived",
+    "since": "2026-07-26",
+    "subject": "the Token diff figure recorded on a steering-text commit",
+    "mechanism": "re-run plugins/harness/skills/commit-protocol/scripts/token_diff.py --base <sha>^ --target <sha>; the file set derives from the commit's diff and the count_tokens endpoint is the reference"
   }
 }

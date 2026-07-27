@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+# Tests for the commit-protocol token-diff script. Each case runs the script
+# against a fixture repo and a stubbed count_tokens endpoint (one word = one
+# token) and asserts the emitted line and exit code. Measured lines are
+# compared for exact stdout equality: rc 0 or 2 promises stdout is only the
+# line, paste-able into a commit body. Exit code is the number of failing
+# cases.
+set -u
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT="$REPO/plugins/harness/skills/commit-protocol/scripts/token_diff.py"
+TMP="$(mktemp -d)"
+trap '[ -n "${STUB_PID:-}" ] && kill "$STUB_PID" 2>/dev/null; rm -rf "$TMP"' EXIT
+fails=0
+
+check_line() { # name expected_stdout actual_stdout (exact - stdout is the line)
+  if [ "$3" = "$2" ]; then echo "PASS: $1"; else
+    echo "FAIL: $1"; echo "  want: <$2>"; echo "  got:  <$3>"; fails=$((fails+1)); fi
+}
+check_prefix() { # name expected_prefix actual
+  case "$3" in
+    "$2"*) echo "PASS: $1" ;;
+    *) echo "FAIL: $1"; echo "  want prefix: <$2>"; echo "  got:         <$3>"; fails=$((fails+1)) ;;
+  esac
+}
+check_rc() { # name expected actual
+  if [ "$2" -eq "$3" ]; then echo "PASS: $1"; else
+    echo "FAIL: $1"; echo "  want rc $2, got rc $3"; fails=$((fails+1)); fi
+}
+
+# Stub endpoint: input_tokens = whitespace-separated word count of the message
+# content (string or content-block form); content containing BOOM simulates a
+# server-side failure.
+cat > "$TMP/stub.py" <<'PY'
+import json, sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+class H(BaseHTTPRequestHandler):
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers.get("content-length", 0))))
+        content = body["messages"][0]["content"]
+        if isinstance(content, list):
+            content = "".join(block.get("text", "") for block in content)
+        if "BOOM" in content:
+            self.send_response(500)
+            self.end_headers()
+            self.wfile.write(b'{"type":"error"}')
+            return
+        out = json.dumps({"input_tokens": len(content.split())}).encode()
+        self.send_response(200)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(out)))
+        self.end_headers()
+        self.wfile.write(out)
+
+    def log_message(self, *a):
+        pass
+
+srv = HTTPServer(("127.0.0.1", 0), H)
+with open(sys.argv[1], "w") as f:
+    f.write(str(srv.server_address[1]))
+srv.serve_forever()
+PY
+python3 "$TMP/stub.py" "$TMP/port" & STUB_PID=$!
+for _ in $(seq 50); do [ -s "$TMP/port" ] && break; sleep 0.1; done
+export ANTHROPIC_BASE_URL="http://127.0.0.1:$(cat "$TMP/port")"
+export ANTHROPIC_API_KEY="test-key"
+
+# Fixture repo. Committed state -> staged state, word counts in parentheses:
+#   skills/a/f1.md modified  (4 -> 6): delta +2
+#   skills/a/f2.md modified  (3 -> 1): delta -2
+#   skills/a/f3.md added     (0 -> 2): delta +1 against the one-word sentinel
+#   skills/a/f4.md deleted   (3 -> 0): delta -2 against the same sentinel
+#   src/app.py    modified   - not steering text, excluded from derivation
+# Aggregate over the steering files: added 3, removed 4, net -1.
+R="$TMP/repo"
+git init -q "$R"
+g() { git -C "$R" -c user.email=t@t -c user.name=t "$@"; }
+mkdir -p "$R/skills/a" "$R/src"
+printf 'a b c d' > "$R/skills/a/f1.md"
+printf 'one two three' > "$R/skills/a/f2.md"
+printf 'z z z' > "$R/skills/a/f4.md"
+printf 'code v1' > "$R/src/app.py"
+g add .
+g commit -qm base
+printf 'a b c d e f' > "$R/skills/a/f1.md"
+printf 'one' > "$R/skills/a/f2.md"
+printf 'p q' > "$R/skills/a/f3.md"
+printf 'code v2' > "$R/src/app.py"
+g add .
+g rm -q skills/a/f4.md
+
+# 1. explicit paths: aggregates per-file deltas across modified/added/deleted
+out="$(cd "$R" && python3 "$SCRIPT" skills/a/f1.md skills/a/f2.md skills/a/f3.md skills/a/f4.md 2>/dev/null)"; rc=$?
+check_line "explicit paths measure the staged diff" "Token diff: +3/-4 (net -1, claude-opus-5)" "$out"
+check_rc "explicit paths exit 0" 0 "$rc"
+
+# 2. no paths: the set derives from the staged diff, non-steering files excluded
+out="$(cd "$R" && python3 "$SCRIPT" 2>/dev/null)"
+check_line "derived paths match and filter steering text" "Token diff: +3/-4 (net -1, claude-opus-5)" "$out"
+
+g commit -qm change
+
+# 3. an unchanged file contributes zero; --model is named in the line
+out="$(cd "$R" && python3 "$SCRIPT" --model test-model skills/a/f1.md 2>/dev/null)"
+check_line "unchanged file is zero, model override named" "Token diff: +0/-0 (net +0, test-model)" "$out"
+
+# 4. a recorded figure re-derives from history with no path list (ORC-5)
+out="$(cd "$R" && python3 "$SCRIPT" --base HEAD^ --target HEAD 2>/dev/null)"
+check_line "historical derivation matches the staged figure" "Token diff: +3/-4 (net -1, claude-opus-5)" "$out"
+
+# 5. a named path absent on both sides aborts: a wrong list must not read
+#    as a measured zero
+out="$(cd "$R" && python3 "$SCRIPT" skills/a/nope.md 2>/dev/null)"; rc=$?
+check_prefix "absent path degrades to unavailable" "Token diff: unavailable (" "$out"
+check_rc "absent path exits 2" 2 "$rc"
+
+# 6. nothing steering in the diff: derivation aborts rather than print +0/-0
+printf 'code v3' > "$R/src/app.py"
+g add src/app.py
+out="$(cd "$R" && python3 "$SCRIPT" 2>/dev/null)"; rc=$?
+check_prefix "steering-free diff degrades to unavailable" "Token diff: unavailable (" "$out"
+check_rc "steering-free diff exits 2" 2 "$rc"
+g reset -q -- src/app.py
+g checkout -q -- src/app.py
+
+# 7. endpoint failure: prints the unavailable line, exit 2
+printf 'BOOM goes the server' > "$R/skills/a/f5.md"
+g add skills/a/f5.md
+out="$(cd "$R" && python3 "$SCRIPT" skills/a/f5.md 2>/dev/null)"; rc=$?
+check_prefix "endpoint failure degrades to unavailable" "Token diff: unavailable (" "$out"
+check_rc "endpoint failure exits 2" 2 "$rc"
+g rm -q --cached skills/a/f5.md
+
+# 8. no resolvable credentials: prints the unavailable line, exit 2.
+# PATH holds only git and python3, so no `ant` CLI can supply a fallback.
+mkdir -p "$TMP/bin"
+ln -sf "$(command -v git)" "$TMP/bin/git"
+ln -sf "$(command -v python3)" "$TMP/bin/python3"
+out="$(cd "$R" && env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN PATH="$TMP/bin" python3 "$SCRIPT" skills/a/f1.md 2>/dev/null)"; rc=$?
+check_prefix "missing credentials degrade to unavailable" "Token diff: unavailable (" "$out"
+check_rc "missing credentials exit 2" 2 "$rc"
+
+# 9. bad usage: exit 1, no line on stdout
+out="$(cd "$R" && python3 "$SCRIPT" --bogus-flag 2>/dev/null)"; rc=$?
+check_rc "bad usage exits 1" 1 "$rc"
+[ -z "$out" ] && echo "PASS: bad usage prints no line" || { echo "FAIL: bad usage printed: $out"; fails=$((fails+1)); }
+
+echo "---"
+[ "$fails" -eq 0 ] && echo "ALL PASS" || echo "$fails FAILURE(S)"
+exit "$fails"
