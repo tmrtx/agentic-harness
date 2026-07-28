@@ -40,5 +40,12 @@
     "since": "2026-07-27",
     "subject": "each commit of a finished PR stack at merge time: its problem predates the branch (state, survives the merge) vs was created by the branch's own commits (journey, folded by the merger)",
     "mechanism": "the /merge skill runs skills/merge/scripts/classify_stack.py; claude-haiku-4-5-20251001 judges each commit's message plus the ordered sibling listing against skills/merge/rubric.md; leftover fixup!/squash!/amend! subjects are folds without a model call; the merger folds on fold verdicts, may overrule (it, not the model, is the merger), and re-runs the judge on the folded stack to verify a clean landing; nothing blocks a live implementer session — the implementer's branch is a licensed scratchpad; calibration corpus and held-out error rates live in evals/stack-provenance (labels derived from the principal's recorded fold actions in mono-repo PR history)"
+  },
+  "ORC-9": {
+    "oracle-class": "static",
+    "ground-truth": "derived",
+    "since": "2026-07-28",
+    "subject": "a research report's load-bearing factual claims: each resolves against its cited primary source, and each claim that cannot is marked unverified in the text",
+    "mechanism": "re-fetch every cited URL and check the claim against it; the report's own `unverified` markers declare the boundary of what the check covers, so an unresolvable claim is a shape violation rather than a silent error"
   }
 }
