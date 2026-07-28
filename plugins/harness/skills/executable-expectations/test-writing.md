@@ -13,6 +13,12 @@ For a test to earn its place, require at least one:
 | Low observability          | Would failure be silent or delayed—unnoticed during normal use?            |
 | Contract stability         | Must this behavior remain stable across future changes?                    |
 
+A suite that fails the table has still done its job: the failing test that
+drove the change (`CIA-8.1`) is an instrument, not an artifact. Run it, cite
+it in `[CHANGE]`, and drop it before the change lands — only tests that earn
+their place become landed state, and a scaffold left in the tree is read by
+every future maintainer as a contract it was never written to be.
+
 ## Test behavior not identity
 
 - **Specification test**: Encodes a behavioral contract that (a) involves
