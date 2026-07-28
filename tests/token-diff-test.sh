@@ -63,7 +63,7 @@ PY
 python3 "$TMP/stub.py" "$TMP/port" & STUB_PID=$!
 for _ in $(seq 50); do [ -s "$TMP/port" ] && break; sleep 0.1; done
 export ANTHROPIC_BASE_URL="http://127.0.0.1:$(cat "$TMP/port")"
-export ANTHROPIC_API_KEY="test-key"
+export ANTHROPIC_TOKEN_DIFF_KEY="test-key"
 
 # Fixture repo. Committed state -> staged state, word counts in parentheses:
 #   skills/a/f1.md modified  (4 -> 6): delta +2
@@ -131,12 +131,12 @@ check_prefix "endpoint failure degrades to unavailable" "Token diff: unavailable
 check_rc "endpoint failure exits 2" 2 "$rc"
 g rm -q --cached skills/a/f5.md
 
-# 8. no resolvable credentials: prints the unavailable line, exit 2.
-# PATH holds only git and python3, so no `ant` CLI can supply a fallback.
-mkdir -p "$TMP/bin"
-ln -sf "$(command -v git)" "$TMP/bin/git"
-ln -sf "$(command -v python3)" "$TMP/bin/python3"
-out="$(cd "$R" && env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN PATH="$TMP/bin" python3 "$SCRIPT" skills/a/f1.md 2>/dev/null)"; rc=$?
+# 8. no credential: prints the unavailable line, exit 2. The generic names are
+# set here and must not satisfy the script - counting reads one variable of its
+# own, so a session authenticated for other purposes never silently bills it.
+out="$(cd "$R" && env -u ANTHROPIC_TOKEN_DIFF_KEY \
+        ANTHROPIC_API_KEY=generic ANTHROPIC_AUTH_TOKEN=generic \
+        python3 "$SCRIPT" skills/a/f1.md 2>/dev/null)"; rc=$?
 check_prefix "missing credentials degrade to unavailable" "Token diff: unavailable (" "$out"
 check_rc "missing credentials exit 2" 2 "$rc"
 

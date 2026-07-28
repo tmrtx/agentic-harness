@@ -32,8 +32,12 @@ Measurement semantics:
   override with --model or ANTHROPIC_TOKEN_DIFF_MODEL).
 - File contents are sent to the Anthropic API.
 
-Credentials resolve in order: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, an
-`ant` CLI login. ANTHROPIC_BASE_URL overrides the endpoint host.
+Counting reads ANTHROPIC_TOKEN_DIFF_KEY and nothing else. The generic names
+are deliberately not consulted: Claude Code claims ANTHROPIC_API_KEY for its
+own auth, so a shared name set once for counting would silently redirect a
+session's model calls - including this skill's own subagent judges - onto that
+key's billing. One variable, one purpose. ANTHROPIC_BASE_URL overrides the
+endpoint host.
 
 Exit codes: 0 counted; 2 printed a `Token diff: unavailable (<reason>)`
 line (expected degradation: missing credentials, unreachable endpoint,
@@ -45,7 +49,6 @@ import argparse
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import urllib.error
@@ -54,6 +57,7 @@ import urllib.request
 API_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-opus-5"
 SENTINEL = "x"
+API_KEY_ENV = "ANTHROPIC_TOKEN_DIFF_KEY"
 
 # Conservative operational net for steering text - files loaded into
 # agent/model context. The commit-protocol skill's intent-based definition
@@ -82,26 +86,6 @@ def derive_paths(base, target):
     if r.returncode != 0:
         raise Unavailable("git diff failed: %s" % r.stderr.strip())
     return [p for p in r.stdout.splitlines() if p and re.search(STEERING_RE, p)]
-
-
-def resolve_credentials():
-    key = os.environ.get("ANTHROPIC_API_KEY")
-    if key:
-        return {"x-api-key": key}
-    token = os.environ.get("ANTHROPIC_AUTH_TOKEN")
-    if not token and shutil.which("ant"):
-        r = subprocess.run(
-            ["ant", "auth", "print-credentials", "--access-token"],
-            capture_output=True, text=True, timeout=15,
-        )
-        if r.returncode == 0 and r.stdout.strip():
-            token = r.stdout.strip()
-    if token:
-        headers = {"authorization": "Bearer " + token}
-        if token.startswith("sk-ant-oat"):
-            headers["anthropic-beta"] = "oauth-2025-04-20"
-        return headers
-    return None
 
 
 class Counter:
@@ -168,14 +152,13 @@ def main():
         print("token_diff.py: not inside a git work tree", file=sys.stderr)
         return 1
 
-    headers = resolve_credentials()
-    if headers is None:
-        print("Token diff: unavailable (no Anthropic API credentials: "
-              "set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN, or `ant auth login`)")
+    key = os.environ.get(API_KEY_ENV)
+    if not key:
+        print("Token diff: unavailable (no counting credential: set %s)" % API_KEY_ENV)
         return 2
 
     counter = Counter(
-        args.model, headers,
+        args.model, {"x-api-key": key},
         os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
     )
     added = removed = 0
