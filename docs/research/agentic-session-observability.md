@@ -26,8 +26,11 @@ Three findings drive the verdict:
    agentic-first architecture, not a retrofit.
 2. **Visualization is the weakest axis, and it is a ceiling on debugging, not
    on modeling.** Langfuse renders agent graphs, trace timelines, and genuinely
-   good custom dashboards. It does not do time-travel replay or cross-run
-   trajectory diffing — and neither does any self-hostable alternative.
+   good custom dashboards, and it does ship session replay plus per-generation
+   re-run. What it does not do is checkpoint rewind — fork at step 15, change
+   state, re-run the tail — or cross-run trajectory diffing. Neither does any
+   self-hostable alternative, and the rewind limit is structural rather than a
+   missing feature.
 3. **Adoption is the strongest axis and it just got stronger.** Most widely
    deployed open-source LLM observability platform, 26M+ SDK installs/month,
    63 Fortune 500 deployments, now owned by ClickHouse. Ecosystem risk on this
@@ -132,7 +135,7 @@ rendering ([Agent graphs][graphs]). The type system is load-bearing.
 | Cost incl. cache TTLs | Arbitrary `usage_details` + custom pricing + ingested-cost priority | ✅ |
 | Reasoning text | Arbitrary observation `input`/`output` | ✅ stored, ❌ no dedicated rendering |
 | Agent graph | Auto-inferred from observation types, timings, nesting | ⚠️ beta |
-| Replay | Session view "displays a replay of interactions" | ⚠️ trace list, not time-travel |
+| Replay | Named "session replay" of the interaction thread; per-generation re-run via `Open in Playground` | ⚠️ real, but view-and-re-run — not checkpoint rewind |
 | Cross-run diffing | Dataset/experiment comparison only | ❌ for arbitrary sessions |
 
 Nothing in the ❌/⚠️ column is a data-model limitation. All three are rendering
@@ -223,9 +226,31 @@ natural axis for "cost by tool" — is not stated in the docs and is
 
 ### What it does not render
 
-- **No time-travel replay.** The session view is a trace list described as "a
-  replay of interactions" — not a scrubbable re-execution. AgentOps' rewind-and-
-  replay debugging has no Langfuse equivalent.
+- **Replay exists, but it is not time-travel — check which one you need.**
+  Langfuse does ship a feature it calls replay, and has since v3: the docs
+  describe seeing "a simple **session replay** of the entire interaction"
+  ([Sessions][sessions]). Separately, any generation can be re-run from a
+  production trace via `Open in Playground` ([Playground][playground]). So the
+  session view is more than a static list — it is a thread reconstruction plus
+  per-step re-execution.
+
+  What it is *not* is checkpoint rewind. There is no ability to fork execution
+  at step 15 of 30, change state, and re-run only the tail. A practitioner who
+  uses Langfuse for tracing put the boundary precisely: "Langfuse is great at
+  showing you what happened. It can't let you change what happened and observe
+  a different outcome" ([Rewind writeup][rewind]). That is a structural limit,
+  not a missing feature: an observability backend receives spans after the
+  fact and holds no restorable execution state. AgentOps' rewind-and-replay and
+  LangGraph's checkpoint time-travel both depend on state the *runtime* keeps.
+
+  Two practical consequences. Beware secondary sources that attribute
+  "time-travel debugging" to Langfuse — the phrasing circulates
+  interchangeably across platforms in vendor comparisons and does not survive
+  contact with the docs. And if fork-from-failure is what you actually want,
+  it composes with STAY rather than competing: `Rewind` imports traces from
+  Langfuse through the REST API and replays from the failure point onward
+  ([Rewind writeup][rewind]) — **third-party, unverified**, but the integration
+  path is additive, not a migration.
 - **No cross-trace tool timeline for a whole session.** You get per-trace
   timelines and a session-level list of traces; you do not get one continuous
   tool timeline across a multi-hour session. For long-horizon work this is the
@@ -456,6 +481,8 @@ the license before adopting.
 - [Langfuse — Observation types][obs-types]
 - [Langfuse — Agent graphs][graphs]
 - [Langfuse — Custom dashboards][dashboards]
+- [Langfuse — LLM Playground][playground]
+- [Why I added Rewind to Langfuse for debugging][rewind] *(practitioner writeup; third-party, unverified)*
 - [Langfuse — Token and cost tracking][cost]
 - [Langfuse — How to update traces, observations, and scores?][updates]
 - [Langfuse — Fast Preview: Faster and Observations-First (v4)][v4]
@@ -486,6 +513,8 @@ against a primary counter.
 [obs-types]: https://langfuse.com/docs/observability/features/observation-types
 [graphs]: https://langfuse.com/docs/observability/features/agent-graphs
 [dashboards]: https://langfuse.com/docs/metrics/features/custom-dashboards
+[playground]: https://langfuse.com/docs/playground
+[rewind]: https://dev.to/risjai/i-use-langfuse-for-tracing-heres-why-i-added-rewind-for-debugging-357p
 [cost]: https://langfuse.com/docs/observability/features/token-and-cost-tracking
 [updates]: https://langfuse.com/faq/all/tracing-data-updates
 [v4]: https://langfuse.com/docs/v4
