@@ -1,0 +1,1009 @@
+{
+ "split": "dev",
+ "n": 96,
+ "trials": 2,
+ "model": "claude-haiku-4-5-20251001",
+ "per_trial": [
+  {
+   "fold_recall": 0.9117647058823529,
+   "keep_specificity": 0.9354838709677419,
+   "fold_precision": 0.8857142857142857,
+   "accuracy": 0.9270833333333334,
+   "f1_fold": 0.8985507246376812,
+   "cm": {
+    "tp": 31,
+    "fn": 3,
+    "tn": 58,
+    "fp": 4
+   }
+  },
+  {
+   "fold_recall": 0.8529411764705882,
+   "keep_specificity": 0.9032258064516129,
+   "fold_precision": 0.8285714285714286,
+   "accuracy": 0.8854166666666666,
+   "f1_fold": 0.8405797101449276,
+   "cm": {
+    "tp": 29,
+    "fn": 5,
+    "tn": 56,
+    "fp": 6
+   }
+  }
+ ],
+ "majority": {
+  "fold_recall": 0.9117647058823529,
+  "keep_specificity": 0.9354838709677419,
+  "fold_precision": 0.8857142857142857,
+  "accuracy": 0.9270833333333334,
+  "f1_fold": 0.8985507246376812,
+  "cm": {
+   "tp": 31,
+   "fn": 3,
+   "tn": 58,
+   "fp": 4
+  }
+ },
+ "verdicts": {
+  "248.1": [
+   [
+    "keep",
+    "The commit addresses pre-existing defects and unmet needs: Planning Inventory entries lacked creation timestamps (pre-existing absence), the helper `inactive-timestamp-now` was a phantom referenced by existing snippets but never implemented (pre-existing bug), and timestamping entry creation was an unmet repository need. These problems predated the branch; the commit extends the codebase to fix them, not to repair the branch's own output."
+   ],
+   [
+    "keep",
+    "This commit fixes pre-existing problems: the lack of creation timestamps on Planning Inventory entries, the undefined `inactive-timestamp-now` function that existed as a latent bug in clarified-task and eod-offloading snippets, and template gaps that predated the branch. It extends pre-branch reality rather than repairing defects the branch itself introduced. The later refactor is sequential development, not repair of this commit's output."
+   ]
+  ],
+  "248.2": [
+   [
+    "fold",
+    "The earlier commit introduced `inactive-timestamp-now` as a new mechanism on this branch. This commit recognizes that introduction was the wrong approach\u2014it duplicates the existing `inactive-timestamp` algorithm, violates DRY, and creates Connascence of Algorithm across files. The better solution (using the pre-existing `inactive-timestamp`) was already available. This is a repair of the branch's own misbegotten work, not an extension of pre-branch reality."
+   ],
+   [
+    "fold",
+    "This commit repairs a defect introduced by the earlier commit in this branch. The message explicitly states \"The first cut of this change reified `inactive-timestamp-now'\" \u2014 a direct reference to the sibling commit that introduced the duplicate function. This commit removes that duplication and consolidates all callers back to the pre-existing `inactive-timestamp`. The problem only came into existence through the branch's own earlier commit; this commit is journey correction, not state extension."
+   ]
+  ],
+  "264.2": [
+   [
+    "keep",
+    "The problem (confusing keybinding between j and J) is a pre-existing UX defect in merged code, not something introduced by this branch. The commit fixes a friction point that existed before the branch was cut. No earlier sibling in the stack introduced the fast journal capture feature, and the commit message describes addressing pre-branch reality, not repairing the branch's own output."
+   ],
+   [
+    "keep",
+    "The problem\u2014adjacent key bindings causing user confusion\u2014predates the branch. This commit fixes a pre-existing ergonomic issue in the repository, not a defect introduced by the branch's own commits. The earlier commit in the stack (mobile-notes refactor) is unrelated to the agenda bindings being changed."
+   ]
+  ],
+  "281.2": [
+   [
+    "keep",
+    "This commit adds new capability (accumulator pattern for batching captures) atop the earlier refactor's prepared foundation. It addresses a pre-existing workflow problem, not a defect in the branch's own work. The refactor extracted a renderer for future reuse; this commit is that planned reuse. The refactored renderer itself did not misbehave or leave damage \u2014 it's simply being deployed in a new pattern. This is sequential decomposition of a feature, not repair of a sibling's broken output."
+   ],
+   [
+    "keep",
+    "Sequential decomposition of planned capability: the earlier commit prepared shared infrastructure (feedback-subtree renderer) for this commit to build upon. The problem addressed\u2014manual heading/structure entry per capture\u2014predates the branch as user friction. This commit extends the capability using the sibling's extracted function as intended, not repairing a defect in it."
+   ]
+  ],
+  "264.3": [
+   [
+    "keep",
+    "The scattered \"x\" string literals and the underlying Connascence of Value problem predate the branch. The refactor consolidates pre-existing structure following an established codebase precedent, improving maintainability rather than repairing a defect introduced by the earlier rebind commit. The rebind itself is complete and functional; the refactor addresses architectural debt independent of that rebind."
+   ],
+   [
+    "keep",
+    "This refactoring is sequential work building on the earlier rebind commit, not a repair of that commit's defects. The magic string duplication it addresses is a pre-existing maintainability concern that predates the branch. The branch's rebind made the issue more salient, but didn't create it. The deliberate separation from the rebind commit signals planned architectural improvement, not damage control."
+   ]
+  ],
+  "281.1": [
+   [
+    "keep",
+    "Preparatory refactor addressing a pre-existing structural problem. The inline feedback-heading format was always hard to reuse; this extraction fixes that structural deficiency before the next commit builds on it. Sequential decomposition of a planned capability, not repair of branch-introduced defects."
+   ],
+   [
+    "keep",
+    "Preparatory refactor extracting pre-existing inline code to remove structural friction before a later feature commit builds on it. The code being extracted was not broken\u2014it was working; the branch is proactively improving organization to enable sequential decomposition. Per precedent, preparatory refactors that address pre-existing structural resistance are keep."
+   ]
+  ],
+  "296.2": [
+   [
+    "keep",
+    "The problem addressed (ispell errors in prose buffers, flyspell breakage from Emacs 30 + NixOS wordlist configuration) existed before the branch. The commit fixes pre-existing system-level friction, not defects introduced by this branch. The reference to the failed 2025-05-25 hack and the system configuration issues confirm this is solving a pre-branch problem, not repairing the branch's own output."
+   ],
+   [
+    "keep",
+    "The commit fixes a pre-existing problem: ispell word-lookup errors when typing in prose buffers on NixOS. The root cause (Emacs 30's text-mode behavior + NixOS's lack of FHS word-list paths) predates the branch. The commit also removes a broken \"echo\" hack from 2025-05-25, which is cleanup of pre-existing code. While the commit introduces a new ispell-wordlist module, that module solves an external problem, not a defect created by this branch's other commits."
+   ]
+  ],
+  "300.1": [
+   [
+    "keep",
+    "Preparatory refactor addressing a pre-existing structural limitation. The original code was designed for a single consumer; this commit enables multiple paths through cleaner structure (cond instead of if, extracted idiom, clearer naming). Though it prepares for a later sibling in the stack, it solves a structural problem that predates the branch. This is sequential decomposition of building one capability in steps\u2014step 1 prepares the ground, step 2 adds the feature\u2014not repair of a broken sibling commit."
+   ],
+   [
+    "keep",
+    "Preparatory refactor of pre-existing code. The clock hand-back mechanism and its structural limitation (\"built for a single consumer\") predated this branch; this commit reshapes it in a behavior-preserving way to accommodate the second path that later commits add. The problem the branch identified\u2014that the structure can't express multiple cases\u2014is a pre-existing structural limitation, not a defect introduced by the branch. Refactoring old code to enable new functionality planned by the same branch is sequential decomposition of work, not repair of branch-introduced defects."
+   ]
+  ],
+  "296.4": [
+   [
+    "fold",
+    "This is a response to this PR's own review feedback (Owner feedback on PR #296) criticizing the design of the ispell-wordlist module that earlier commits in this branch built. The current commit removes that over-engineered structure. This is branch journey (build then refactor away), not final state\u2014it should collapse into the earlier commits that introduced the module to preserve only the final state in the stack."
+   ],
+   [
+    "fold",
+    "Fixes a design defect (over-engineered module structure) introduced by earlier commits in this stack, identified by this PR's review. The pre-existing problem was the need for ispell opt-out; the branch's solution was correct but over-abstracted. This commit corrects that branch-created structural defect, not a pre-existing issue."
+   ]
+  ],
+  "300.3": [
+   [
+    "keep",
+    "Refactoring/extraction of pre-existing capture infrastructure. The org-capture extensions accreted over time in funcs.el as a structural problem predating the branch. Reorganizing pre-existing code is not repairing what the branch built."
+   ],
+   [
+    "keep",
+    "Refactors pre-existing scattered org-capture extensions code into a new module. The poor organization of extensions across funcs.el and test files is described as a pre-existing structural problem (\"accreted over time\"), not created by this branch's earlier clock-related commits. No behavior changes and names remain unchanged. This is preparatory refactoring that enables the later wiring fix\u2014sequential decomposition where a sibling's work is extended, not repaired."
+   ]
+  ],
+  "300.f": [
+   [
+    "fold",
+    "This commit repairs a defect in the branch's own third commit (extract org-capture extensions). The extraction introduced incorrect module wiring that caused startup failures; this commit fixes that architectural flaw by restructuring the module's initialization order. The message explicitly traces the problem to the extraction and corrects behavior that regressed due to the branch's own changes."
+   ],
+   [
+    "fold",
+    "This commit repairs a defect in the earlier sibling extraction commit that introduced org-capture-extras. The extraction wired the module incorrectly, causing startup breakage; this commit fixes that architectural fault in the branch's own introduced code."
+   ]
+  ],
+  "300.2": [
+   [
+    "keep",
+    "The problem predates the branch: clock cancellation doesn't restore interrupted state in existing code. The earlier refactor prepared infrastructure for two separate paths (filing vs. cancel). This commit implements the cancel-path fix using that structure\u2014building on a sibling's correct preparatory work, not repairing it. \"The filed path is unchanged\" confirms no regression. No explicit signal (refactor reference, PR finding, or regression claim) indicates the refactor introduced the defect being fixed."
+   ],
+   [
+    "keep",
+    "The bug being fixed (capture cancellation not restoring clock state) is a pre-existing defect indicated by: (1) the entrenched comment in agenda/capture-lifecycle-init that long predates this branch; (2) the mocked tests that \"kept passing while the real behavior was broken\" \u2014 demonstrating the bug existed before; (3) the root cause in agenda/capture-lifecycle-cleanup treating file and cancel identically is a logic error, not a regression. The earlier refactor \"shaped\" the code; this commit extends that refactor to implement the next step of the fix. Per sequential decomposition rules, building on a sibling's preparatory refactor is keep; only repairing the sibling's breakage is fold. The defect predates the branch; the branch's capability is fixing it."
+   ]
+  ],
+  "296.3": [
+   [
+    "keep",
+    "The commit refactors pre-existing code to extract a common bootstrap pattern. The structural problem it addresses (duplication of layer-local module initialization) predates the branch. While PR #296 review identified the issue, the message does not claim the branch created it. Extracting and improving the structure of pre-existing code is legitimate state-building work, not journey documentation."
+   ],
+   [
+    "keep",
+    "The commit extracts pre-existing bootstrap mechanics shared between lsp-booster (pre-branch) and ispell sequences. Per authorship rules, refactoring/extracting pre-existing code doesn't make the refactorer author of that code's structural defects. The message describes a pre-existing architectural constraint (\"layer-local packages reach load-path only after user-init\"), not a defect this branch created. Though marked as a PR review finding, the message doesn't explicitly state provenance\u2014it doesn't claim the duplication was introduced by an earlier sibling or that this branch created it. Evidence discipline requires explicit provenance signals; unstated causality defaults to keep. The change is purely structural with unchanged outcomes, consolidating existing patterns rather than repairing breakage."
+   ]
+  ],
+  "317.2": [
+   [
+    "keep",
+    "The problem predates the branch. The commit message explicitly states the coding layer has carried cape and corfu-popupinfo configuration \"since the corfu adoption,\" placing this configuration and its defects in pre-branch history. The root causes are all pre-existing: an architectural Spacemacs behavior (ignoring unowned packages), a latent configuration error (post-init vs init), and dormant bugs (corfu-popupinfo not being a real package, buffer-local add-to-list issues). The stack shows the earlier commit (frame display fix) is unrelated, and the message provides no signal that any sibling introduced what this one repairs. This fixes broken pre-branch reality, not damage created by the branch."
+   ],
+   [
+    "keep",
+    "The broken cape and corfu-popupinfo configuration predates this branch (\"carried since the corfu adoption\"). This commit fixes a long-standing defect in the coding layer's configuration, not a bug introduced by this branch's own commits. The root cause (Spacemacs ignoring packages without init-owners) is a pre-existing framework issue. While the later feature commit depends on this fix, the defective configuration itself is pre-branch state."
+   ]
+  ],
+  "324.1": [
+   [
+    "keep",
+    "The commit addresses a pre-existing architectural inconsistency in how Anthropic reasoning tokens are recorded versus other providers. The message describes the problem in present tense (\"Consumers must read two properties\") without indicating that this branch's own earlier commits introduced it. No stack sibling is shown or referenced as having created LLM_REASONING_TOKENS_ESTIMATE or the split between the two properties. Under evidence discipline, the absence of explicit provenance signals that this branch introduced the defect means the problem predates the branch and belongs in keep."
+   ],
+   [
+    "keep",
+    "The problem\u2014Anthropic using a non-standard property (LLM_REASONING_TOKENS_ESTIMATE) while other providers use the standard property (LLM_REASONING_TOKENS)\u2014is a pre-existing design inconsistency. The commit message describes this as an existing state without claiming this branch introduced it. No stack sibling introduces LLM_REASONING_TOKENS_ESTIMATE, and no PR review finding is cited. The inconsistency across providers predates the branch; consolidating to the standard property extends pre-branch reality rather than repairing the branch's own work."
+   ]
+  ],
+  "324.2": [
+   [
+    "keep",
+    "The problem \u2014 unconditional printing of budget/effort rows as \"unknown\" in traces \u2014 is described as existing behavior of the recorder mechanism, not as a defect introduced by this branch's commits. The earlier sibling commit (recording reasoning tokens) is not indicated as the source. Per evidence discipline, absent an explicit link showing the branch introduced this problem, it represents a pre-existing issue in trace recording logic."
+   ],
+   [
+    "keep",
+    "The commit fixes a pre-existing defect in trace output (unconditional printing of budget/effort metadata rows) that existed in the repository before the branch. While the stack includes an earlier commit about recording reasoning tokens, the commit message does not state or show that the earlier commit introduced the problem it fixes\u2014they address different aspects of trace handling. The message describes a systemic issue (\"every trace prints\") without tying it to the branch's own work, and no explicit provenance links this defect to the earlier sibling commit."
+   ]
+  ],
+  "330.2": [
+   [
+    "keep",
+    "The commit adds new functionality (a \"?\" binding with echo-area help) that addresses a pre-existing problem (users getting describe-mode instead of cognition-specific help). While it builds on the earlier refactor's centralized binding table, it isn't repairing that refactor\u2014it's implementing the next planned step. Sequential decomposition where one commit enables the next is keep, not fold."
+   ],
+   [
+    "keep",
+    "The commit extends pre-existing repository state. The usability problem (no easy way to query cognition mode bindings) predates the branch. The solution builds sequentially on the earlier refactor's new table structure without repairing any defect in that refactor\u2014the refactored keymap works as intended. This is planned, multi-step work decomposition (structure then capability), not a discovery of a regression or defect in what the branch's own earlier commit produced."
+   ]
+  ],
+  "317.1": [
+   [
+    "keep",
+    "The face-inheritance cycle problem predates this branch. It is a structural defect in doom-themes' gnus specs that exists independently (tracked upstream as doomemacs/themes#883). While the branch's later commits adding corfu expose this dormant issue by creating frames, the defect itself is pre-existing code, not created by the branch. Per the guidance on unmasked pre-existing bugs, the fix belongs in the stack as `keep`."
+   ],
+   [
+    "keep",
+    "The defect predates the branch. The face inheritance cycle arises from pre-existing conditions (emacs >= 31 behavior, doom themes' gnus face structure, gnus.el loading), documented as an upstream issue (doomemacs/themes#883). This commit fixes a pre-existing bug in the repository's doom configuration that disabled corfu entirely. As the oldest commit in the stack, it cannot repair later sibling work; rather, it unblocks foundational infrastructure (corfu) for the branch's actual work (cape/dabbrev features). No textual evidence connects the problem to the branch's own commits \u2014 it is a pre-branch defect being repaired as a prerequisite."
+   ]
+  ],
+  "330.1": [
+   [
+    "keep",
+    "Preparatory refactor of pre-existing code addressing organizational friction that predates the branch. Behavior unchanged and verified. Later feature builds on the completed refactoring rather than fixing a defect in it."
+   ],
+   [
+    "keep",
+    "Preparatory refactor for sequential capability building. The structural limitation (inability to introspect keymap metadata) predates the branch; the refactor improves it to enable the later feature commit, but does not repair a defect created within this branch's own earlier commits."
+   ]
+  ],
+  "317.3": [
+   [
+    "keep",
+    "Sequential capability: commit 2 revived the wiring in deliberate minimal form (\"the two capfs the dead wiring had declared\"); this commit adds the next step (dabbrev for prose). Wiring doesn't misbehave\u2014it's unfinished. Labeled as feat, not fix. Prose completion is pre-branch need being built stepwise, not a defect in commit 2's output."
+   ],
+   [
+    "keep",
+    "The problem (missing word completion in prose buffers via cape-dabbrev) predates the branch. The earlier commit that revived the corfu wiring restored only the sources the old configuration had\u2014an incomplete pre-existing state. This commit addresses that pre-existing incompleteness by adding a standard prose source, as planned sequential work building on the infrastructure the branch enabled, not repair of a defect the branch introduced."
+   ]
+  ],
+  "324.3": [
+   [
+    "keep",
+    "The regime-split problem and structural inconsistency in absence semantics are described as pre-existing (\"already inconsistently\", \"still declares\", \"drifted apart immediately\"). The message never states the earlier commits introduced this structural issue. The refactor addresses long-standing architectural problems with how the code organizes absence semantics, not damage from this branch's own changes."
+   ],
+   [
+    "keep",
+    "Sequential refactoring of structural logic introduced by earlier commits. The message describes a structural consolidation rather than repair of a defect in prior work. Absence of explicit provenance linking this to a bug in the branch's own earlier commits defaults to keep."
+   ]
+  ],
+  "331.1": [
+   [
+    "keep",
+    "This refactor addresses pre-existing problems in the code: fragile regex patterns, a buffer-name vs file-name mismatch that predates the branch, and a real gap with capture-journal.org entries. The commit message describes problems in an existing implementation, not regressions this branch created. Without explicit evidence linking this to what the branch itself broke, it stays as part of the state being built."
+   ],
+   [
+    "keep",
+    "The commit refactors pre-existing code to fix pre-branch defects (buffer-name vs file-name resolution, capture-journal.org direct-visit gap). The message cites no earlier branch commit as introducing the repaired logic\u2014only the existing architecture's problems. By evidence discipline, unstated provenance within the branch defaults to keep: the problem predates the branch."
+   ]
+  ],
+  "334.1": [
+   [
+    "keep",
+    "The problem predates the branch: forge post buffers were already behaving differently from other managed poppers before this branch. This commit extends the existing popper configuration to handle a previously uncovered case. With no earlier siblings in the stack to have introduced the repaired object, there is nothing within the branch itself to repair\u2014only pre-existing configuration to improve."
+   ],
+   [
+    "keep",
+    "The problem predates the branch. The commit fixes a gap in existing configuration: forge post buffers were already disrupting the layout while other similar buffers (claude, aidermacs, shell output) were correctly managed by popper. This is a pre-existing friction point in the repository's setup \u2014 the configuration of popper was incomplete \u2014 not a defect created by this branch's own work. The message describes an existing need (completing popper's coverage to include forge), not a repair of something this branch introduced. Completing what prior configuration left undone is state, not journey."
+   ]
+  ],
+  "301.1": [
+   [
+    "keep",
+    "Pure refactoring of pre-existing duplicated code. The shell command duplication predates this branch; the commit consolidates it into a single function without fixing any defects introduced by the branch. Extracting and removing duplication is an improvement to pre-branch reality, not a repair of the branch's own breakage."
+   ],
+   [
+    "keep",
+    "The commit refactors pre-existing code duplication\u2014the Emacs instance spawn command that was inlined in two places before the branch existed. The problem addressed (duplication and maintenance friction) is a pre-existing architectural issue, not a defect introduced by this branch. The message explicitly states 'Pure refactoring' and confirms the produced command is character-identical to both previous literals, indicating consolidation of existing code rather than repair of a branch-introduced defect. While the later sibling commit (the theme-disabling fix) may depend on this cleaner structure, preparatory refactors that address pre-existing structure resistance stay keep: the duplication predates the branch."
+   ]
+  ],
+  "285.1": [
+   [
+    "keep",
+    "The problem addressed\u2014lack of fast vocabulary lookup while writing\u2014is a pre-existing unmet need, not a defect created by the branch. This commit introduces a new feature to solve that need. Later commits in the stack refactor and extend this implementation, but do not repair bugs or regressions in this commit's output."
+   ],
+   [
+    "keep",
+    "Addresses a pre-branch problem (unmet need for fast vocabulary lookup while writing). Introduces new capability rather than repairing branch-built defects. First commit in a sequential decomposition\u2014later commits build features on top of it. No defect signal or review finding. The problem predates the branch; the solution is the branch's contribution."
+   ]
+  ],
+  "285.3": [
+   [
+    "fold",
+    "PR #285 review finding (CIA-7.2) of redundant entry-point declarations introduced by the earlier feature commit. This commit removes structural duplication from what the branch's own \"add LLM vocabulary candidates\" commit created during initial wiring\u2014pure internal repair, not new capability or pre-existing defect."
+   ],
+   [
+    "fold",
+    "PR #285 review found a defect (redundant triple-declaration of the deferred entry point) in code this branch introduced during initial wiring. The commit repairs the branch's own structural fault by consolidating to a single declaration via :bind. The problem did not exist before the branch was cut; it was created by the branch's own commits."
+   ]
+  ],
+  "331.2": [
+   [
+    "keep",
+    "The problem\u2014prompts.org lacking automatic ID prefixes\u2014predates the branch; eight prompts already carry manual `prompt:` IDs, evidencing an unmet need before the branch was cut. The preceding refactor introduced a *mechanism* (file-based prefix declaration), not a defect. This commit uses that preparatory work to fix a pre-existing issue, making it an extension of the repository's intended state, not a repair of the branch's own regression."
+   ],
+   [
+    "fold",
+    "The preceding refactor changed ID prefix derivation from buffer-based to file-based, creating a new requirement for prompts.org to be in the config file. This commit fulfills that requirement, completing the refactor's mechanism. The problem only became a problem through the refactor's own mechanism change; the fix directly addresses the gap the refactor introduced, not a pre-existing defect."
+   ]
+  ],
+  "285.4": [
+   [
+    "fold",
+    "Review finding (PR #285 CIA-7.2) in this branch's own output: the annotation state transition logic introduced by earlier commits in the stack is hand-repeated across three sites with convention-based coordination. This commit consolidates the duplication into a single transition function. The defect was created by this branch's earlier commits and discovered in review of this PR; it documents journey, not state."
+   ],
+   [
+    "fold",
+    "This commit repairs a structural defect found during THIS pull request's review (PR #285, CIA-7.2) in code that this branch's own earlier commits built. The problem\u2014hand-repeated status transition logic with fragile coordination by comment\u2014exists in the three presentation sites introduced by the earlier feature and refactor commits in the stack. The commit extracts common logic from those sites into a centralized transition function, consolidating what the branch's own previous commits created in fragmented form. Test preservation (27/27 unchanged) confirms this is repair, not extension. The problem came into existence through this branch's own output; repairing the branch's own structural drift is journey."
+   ]
+  ],
+  "301.2": [
+   [
+    "keep",
+    "The defect (bare load-theme causing theme stacking) is not shown to have been introduced by the earlier commit's extraction/refactoring. The message describes a pre-existing bug in the dedicated instance commands, exposed by newer Emacs versions. No explicit evidence links this defect to the branch itself."
+   ],
+   [
+    "keep",
+    "The problem (theme stacking via bare load-theme in spawn commands) predates the branch. The earlier commit is a refactor that extracted existing code; per the authorship rule, a refactor does not become the author of pre-existing defects in the code it consolidates. The commit message describes the issue as a characteristic behavior of the spawn commands themselves, not as something the refactoring introduced. Newer Emacs versions made the latent defect visible, but elevation by environment is not creation by the branch."
+   ]
+  ],
+  "285.2": [
+   [
+    "fold",
+    "PR review finding (CIA-7.2) on defect introduced by earlier stack commit: unnecessary defensive parser branches that are unreachable under schema-forced constraints. The message cites the review, identifies the earlier feature commit's work, and contains no statement that the defective code predates the branch."
+   ],
+   [
+    "fold",
+    "The commit removes defensive code branches introduced by the immediately-preceding (earlier) commit in this same stack. The earlier commit added `vocabulary--parse-candidates` with branches for JSON shapes the shipped configuration cannot produce. This commit trims those unreachable code paths after a PR #285 review finding (CIA-7.2) exposed unnecessary complexity. The problem\u2014defensive branching for an inapplicable contingency\u2014originated within the branch's own work, not before. Removing this journey artifact belongs inside the stack before merge."
+   ]
+  ],
+  "285.6": [
+   [
+    "keep",
+    "Explicitly marked as \"PR #285 request\" \u2014 a reviewer request for new/different behavior (vertical rendering preference). A changed requirement is a new problem arriving from outside, not a discovered defect in what the branch created. The marker distinguishes: it names a capability/preference, not a defect."
+   ],
+   [
+    "keep",
+    "PR #285 request: explicitly signals a new requirement arriving from review. The horizontal rendering didn't misbehave or regress; it was a preference request for improved readability. Changed requirements are new problems, not discovered defects, and stay in the stack even when changing the branch's own first cut."
+   ]
+  ],
+  "285.5": [
+   [
+    "keep",
+    "This commit implements a new capability explicitly requested via PR #285, not a repair of a defect the branch introduced. The message clearly marks this as \"PR #285 request:\" \u2014 a new requirement arriving from outside \u2014 requesting faster UX (M-1..M-5 keys) for candidate selection. The framework distinguishes between requests for new/different behavior (which stay keep) and defect findings (which fold). This request names a capability/preference, not a defect. The branch built the annotation mechanism; this commit extends it with an additional acceptance path, which is sequential decomposition and stays keep \u2014 building on a sibling is not repairing it."
+   ],
+   [
+    "keep",
+    "This commit implements a capability requested in PR #285 review (\"one keypress should do\"), not a defect found in the branch's own work. The message explicitly marks it as \"PR #285 request:\", and the problem describes missing functionality (quick keybindings) rather than misbehavior in what siblings introduced. It extends the annotation selection system that earlier commits built, following the planned feature decomposition shown in the stack."
+   ]
+  ],
+  "284.3": [
+   [
+    "keep",
+    "Extends pre-branch reality. The problem (recurring entry types manually typed in journal) predates the branch. An earlier sibling commit in this stack deliberately introduced the capture template infrastructure; this commit implements the planned next step\u2014adding three template instances for the pre-existing friction. Sequential decomposition of a feature, not repair of a defect in what the branch built."
+   ],
+   [
+    "keep",
+    "The commit adds new templates for entry types (FRICTION, BREAK, STIMULANT) that already exist in the journal corpus\u2014addressing a pre-branch problem of manual retyping. While it builds upon the refactored capture template mechanism introduced by an earlier sibling commit, it is not repairing that mechanism's defects. Instead, it extends the system with needed functionality to solve a pre-existing need."
+   ]
+  ],
+  "284.2": [
+   [
+    "keep",
+    "The duplication and architectural issues this commit addresses existed before the branch was cut. The three journal capture templates are described as \"existing,\" and the cause identifies pre-existing structural problems: an abandoned abstraction attempt and fast-journal lifecycle defuns nested in configure-journal. This is a preparatory refactor of pre-existing code to reduce friction for later feature commits \u2014 a pre-branch problem, not a defect introduced by this branch."
+   ],
+   [
+    "keep",
+    "The commit removes pre-existing duplication and hardcoding in journal templates that existed before the branch. It is a preparatory refactor addressing a longstanding structural problem, not a repair of defects introduced by this branch's own earlier commits. Later commits build on the refactored structure; building on a sibling is keep, not fold."
+   ]
+  ],
+  "285.7": [
+   [
+    "keep",
+    "Commit explicitly addresses \"PR #285 request\" for changed behavior. The original M-1..M-5 binding (commit 5) was designed with intentional tradeoffs; this commit honors a reviewer preference to reverse those tradeoffs for the async use case. Per guidance, reviewer requests for new or different behavior stay keep even when applied to the branch's own prior work \u2014 this is a changed requirement (external), not a discovered defect (internal repair)."
+   ],
+   [
+    "keep",
+    "PR #285 request: the commit addresses a reviewer request for expanded capability (selecting candidates from anywhere in the buffer), not a defect in what commit #5 built. The original M-1..M-5 implementation was correct but limited in scope; this is a capability expansion requested from outside the branch."
+   ]
+  ],
+  "284.6": [
+   [
+    "keep",
+    "The commit message explicitly states that agenda/capture-open-loops predates the branch. Although this is a review finding from PR #284, the message's own statement that the defective code predates the branch means this is a pre-existing bug unmasked by the branch, not a defect the branch created. The branch's refactor exposed an inconsistency, but did not cause the underlying hardcoded path to exist."
+   ],
+   [
+    "fold",
+    "This commit repairs an inconsistency introduced when an earlier stack commit elevated org-journal-dir to canonical status without updating capture-open-loops. The mismatch did not exist before the branch\u2014it only came into existence through the branch's own consolidation refactor. The commit addresses a finding from this PR's own review."
+   ]
+  ],
+  "342.1": [
+   [
+    "keep",
+    "The commit addresses a pre-existing structural problem (repetition in Friction and Break templates, lack of test coverage) rather than repairing something this branch created. It is a preparatory refactor that centralizes an existing pattern to enable subsequent work, consistent with the guidance that preparatory refactors addressing pre-existing structure are keep. The stack direction rule prevents attributing this commit's origin to the later commit, and no explicit provenance signals that this branch created the repetition problem."
+   ],
+   [
+    "keep",
+    "The commit addresses pre-existing code duplication and structural friction in the journal entry templates. The problem\u2014repeated clock-borrowing policy across multiple entry types\u2014existed in the codebase before the branch. While the refactoring enables the later feature, preparatory refactors that fix pre-existing structural issues remain `keep`, not `fold`."
+   ]
+  ],
+  "342.2": [
+   [
+    "keep",
+    "The problem addressed\u2014missing capture keys for five entry types\u2014predates the branch, evidenced by historical journal entries since 2026-06-01. The commit extends what the branch is building by leveraging the earlier refactor of the clock-borrowing policy, following as a natural next step. It is not repairing a defect introduced by the earlier sibling, but rather using that sibling's output to add new capabilities to a pre-existing friction."
+   ],
+   [
+    "keep",
+    "The problem predates the branch. The commit message explicitly states the decision to limit capture keys was made when the capture menu was built and never revisited. The missing keys for five entry types is a long-standing friction evidenced by entries filed since June 2026. This commit adds new capability to address that pre-existing gap, rather than repairing a defect introduced by the earlier refactor commit. The earlier commit restructured the clock-borrowing policy; this commit extends functionality by leveraging that structure\u2014sequential decomposition of a feature, not repair of a sibling's work."
+   ]
+  ],
+  "284.4": [
+   [
+    "fold",
+    "The feat commit introduced :clock-keep behavior but lacked regression tests. This commit adds those tests to pin the behavior's correctness. The test gap is a defect in the branch's own artifacts (incomplete feature coverage), not a pre-existing repository problem. Folding produces a single, properly-tested feature commit."
+   ],
+   [
+    "fold",
+    "The commit fixes inadequate test coverage for templates introduced earlier in this branch. The templates' core claim (`:clock-keep` makes clock survive finalize) went unvalidated because the tests only asserted on filed text, leaving the distinguishing state invisible. This is a repair of the branch's own feature validation, not an extension of pre-branch reality."
+   ]
+  ],
+  "340.1": [
+   [
+    "keep",
+    "Preparatory refactoring of pre-existing code. The structural faults described (rescue binding, abstraction blurs, open-coded guards) existed in the existing `cognition/finalize-comments` function before the branch. No earlier sibling introduced the repaired objects. The commit enables later work but does not repair the branch's own output \u2014 it clears resistance in existing structure that predates the branch's cut."
+   ],
+   [
+    "keep",
+    "This is a preparatory refactor addressing pre-existing structural issues in cognition/finalize-comments that would otherwise impose costs on the subsequent commits in the stack. As the first commit in the branch, it cannot repair anything introduced by earlier branch commits (there are none). The message confirms behavioral equivalence (tests pass unmodified), and describes long-standing structural faults\u2014not defects created by the branch. Per evidence discipline, unstated provenance for the faults means they predate the branch."
+   ]
+  ],
+  "284.1": [
+   [
+    "keep",
+    "The commit fixes a pre-existing defect: tests and comments already referenced layer-test-utils.el, but the file was never checked into the repository or its history. The commit message provides no evidence that this branch introduced those references (no review finding, no stack sibling marker, no \"our tests reference\" language). The suite \"has been failing at load\" indicates long-standing breakage, not regression caused by the branch. Since the problem predates the branch, this is state work, not journey work."
+   ],
+   [
+    "keep",
+    "The problem predates the branch: layer-test-utils.el is a missing file that was never checked in despite being referenced by pre-existing tests and comments. This is a pre-existing gap in the repository, not a defect or regression introduced by this branch's own commits. The fix restores a broken piece of pre-branch infrastructure."
+   ]
+  ],
+  "340.4": [
+   [
+    "fold",
+    "The defect being fixed\u2014rescue sitting inside its own catch\u2014was created by the branch's own earlier refactor commit that hoisted the condition-case. The message explicitly traces causation (\"Hoisting the condition-case... but it also enclosed the three arms that *are* the rescue\"), the stack shows clear relationship, and the test confirms the bug existed only in the previous branch commit. This corrects a structural defect in what the branch built, not a pre-existing problem."
+   ],
+   [
+    "fold",
+    "The commit repairs a structural defect that commit 1 in this stack introduced when hoisting the condition-case. The rescue re-entry vulnerability did not pre-exist; it was created by this branch's own reorganization. The message explicitly traces the cause (hoisting) to the problem (rescue enclosed by its own catch), and the fix moves the rescue outside to undo that structural consequence."
+   ]
+  ],
+  "340.2": [
+   [
+    "keep",
+    "The commit fixes a defect in how a pre-existing kill-ring strategy was reported (inherited the catch-all arm's error message). While the first commit in the stack is a refactor of the dispatch binding, the message does not explicitly state that refactor introduced this specific reporting problem. The defect appears to be pre-existing code friction in the catch-all arm's diagnosis logic, not a problem created by this branch's own commits. Per evidence discipline, unstated provenance defaults to keep."
+   ],
+   [
+    "keep",
+    "The commit fixes a pre-existing defect in error reporting where valid kill-ring captures were misclassified alongside genuine failures. The message describes kill-ring as a designed destination whose standing was already known, and frames the bug as a structural misclassification of that pre-existing outcome. No explicit signal states that the branch's refactor introduced this bug\u2014only that the refactor happened earlier in the stack. Under evidence discipline, unstated provenance defaults to keep."
+   ]
+  ],
+  "284.5": [
+   [
+    "fold",
+    "Commit repairs an architectural guard violation in journal-capture-test.el revealed by this PR's review. The test file was introduced or significantly modified by the earlier \"feat[emacs][agenda]\" commit on this branch. The fix addresses a defect in code the branch built, making this a repair of the branch's own work."
+   ],
+   [
+    "keep",
+    "The defect in test module path resolution predates the branch. The commit explicitly cites a review finding from PR #284 (a previous PR), not this PR's review\u2014evidence the problem existed before the branch was cut. Test infrastructure violations are pre-existing, and refactoring them addresses issues in long-standing code, not defects introduced by this branch's own commits."
+   ]
+  ],
+  "340.3": [
+   [
+    "keep",
+    "The commit addresses pre-existing structural issues (inconsistent naming of endpoints, reporting vocabulary split across files, message format drift). The root-cause explanation indicates these are historical code evolution patterns, not defects introduced by this branch's commits. The earlier commits are refactors and fixes of existing functionality, not sources of the structural inconsistencies being repaired. No explicit signal attributes this problem to the branch's own work."
+   ],
+   [
+    "fold",
+    "This commit repairs structural inconsistencies and vocabulary drift introduced by the earlier refactoring commits in this same branch. The scattered messages and naming inconsistency between finalize endings exist only because the branch's own earlier restructuring split the code across two locations and extracted the rescue ending. This consolidates what the branch built, not extending pre-branch reality."
+   ]
+  ],
+  "339.1": [
+   [
+    "keep",
+    "The problem\u2014capture lifecycle wiring stated in three places with no single source of truth\u2014is a pre-existing architectural issue, not defect introduced by this branch. This refactor reorganizes pre-existing code to solve that pre-existing problem, extending the codebase's structure rather than repairing branch-created output."
+   ],
+   [
+    "keep",
+    "The problems this commit addresses\u2014duplication of lifecycle wiring across three locations, module not owning its own activation\u2014existed before the branch. This is a refactor improving pre-existing architecture, not repairing what this branch built."
+   ]
+  ],
+  "340.5": [
+   [
+    "fold",
+    "The branch extracted `cognition/with-current-request` and migrated one command (`C`) to it while leaving the other (`c`) unmigrated, creating an inconsistency in error messages. The earlier migration also made a false claim that behavior was identical when the text actually changed. This commit repairs that defect by completing the migration and adding test coverage that specifies the unified behavior\u2014fixing a defect introduced by the branch's own partial, insufficiently tested work."
+   ],
+   [
+    "fold",
+    "An earlier commit in this branch migrated command C to use the cognition/with-current-request macro but left command c behind, creating an inconsistency within one tightly-coupled flow. That earlier commit falsely claimed identical behavior when the message text actually changed. This commit repairs that misbehavior and the resulting half-migrated pair by applying the macro to c as well and adding a test to keep both commands consistent. The defect (inconsistent guards, false claim) was created by the branch's own work, not pre-existing."
+   ]
+  ],
+  "338.1": [
+   [
+    "keep",
+    "The bug\u2014valueless property from empty picker input\u2014predates the branch, as evidenced by the existing docstring that specified the behavior while the code failed to implement it. This is a pre-existing contract violation. No branch commit introduced the repaired picker mechanism; fixing a pre-branch specification gap is state, not journey."
+   ],
+   [
+    "keep",
+    "Pre-existing bug in documented behavior. The pos picker functions and their docstring claiming this behavior predate the branch. The commit describes a defect in existing code without textual signal that the branch introduced the repaired object. No stack sibling introduces the picker; it's an existing function with an implementation bug."
+   ]
+  ],
+  "339.3": [
+   [
+    "keep",
+    "The problem\u2014sub-minute captures leaving empty clock lines\u2014is a pre-existing behavior of Org and an unmet configuration need, not a defect introduced by this branch. The earlier refactor merely moved existing lifecycle code; it did not create the clock-line issue. This commit extends the branch's capture-lifecycle work with necessary configuration, representing planned state rather than repair of the branch's own output."
+   ],
+   [
+    "keep",
+    "The zero-time clock issue is pre-existing\u2014org-capture has always left empty clock lines for quick captures, and the configuration setting `org-clock-out-remove-zero-time-clocks` was never enabled. The earlier refactor commit created the lifecycle infrastructure (hooks); this commit extends it with the `:around advice` needed to fix the pre-existing problem at the right moment in org's finalize flow. This is planned sequential decomposition of a feature, not repair of damage the branch introduced."
+   ]
+  ],
+  "338.2": [
+   [
+    "keep",
+    "This is a preparatory refactor that introduces new abstraction (`pos/destination`) to enable the planned features in later commits. The commit message explicitly marks it as \"Preparation, not an end in itself\" and states that later work (\"deriving what a destination deals in and confirming where a line went\") needs this structure. The problem it addresses\u2014the absence of a reified destination representation\u2014is a pre-existing design gap, not a defect introduced by this branch's own commits. The refactor restructures logic around picker presentation and discovery, but doesn't fix a regression or malfunction caused by an earlier stack sibling. This is sequential decomposition: the branch builds one capability in stages, laying infrastructure in this commit for the feature steps that follow. A false fold would block legitimate preparatory work."
+   ],
+   [
+    "keep",
+    "Preparatory refactoring that enables later commits in the stack. Introduces a new abstraction (pos/destination) from existing code without fixing a defect\u2014behavior is unchanged. This is sequential decomposition: building one capability in steps. The later commits explicitly need this destination abstraction, making this commit infrastructure for the next planned step, not a repair of broken work."
+   ]
+  ],
+  "339.2": [
+   [
+    "keep",
+    "The test weakness (inability to verify actual interval duration) predates the branch. This commit is preparatory sequential work\u2014adding testing infrastructure (\"ahead of the behavior that will need it\") that the later fix commit will depend on. It's not repairing a defect the refactor introduced, but building planned capability in order."
+   ],
+   [
+    "keep",
+    "The test limitation this commit addresses\u2014org-capture's inability to be controlled for clock timing\u2014predates the branch. The commit adds preparatory test infrastructure to work around a pre-existing problem, not to repair a defect the branch introduced. No explicit signal shows the earlier refactor created this test defect."
+   ]
+  ],
+  "338.6": [
+   [
+    "fold",
+    "The commit repairs a regression introduced by the immediately preceding commit in the stack. The message explicitly states the defect was \"inherited from org-capture, which the previous commit emulated deliberately.\" The blank-line-eating problem only arose through the branch's own emulation of org-capture behavior; it is not a pre-existing condition. This is repair of a sibling's introduced defect, not extension of pre-branch reality."
+   ],
+   [
+    "fold",
+    "This commit repairs a defect introduced by the branch's previous commit, which deliberately emulated org-capture's blank-line behavior. The commit message explicitly ties the fix to the earlier sibling (\"the previous commit emulated deliberately\") and states the fixture changes only in this one respect from the capture path. The blank-line deletion is a failure in what the branch itself built, not a pre-existing problem."
+   ]
+  ],
+  "338.3": [
+   [
+    "keep",
+    "The commit fixes a pre-existing defect: `pos/entry-type-patterns` table disagreed with tracker files that already existed. The problem is not introduced by this branch's earlier commits; it's a structural issue where the table became stale. No explicit signal indicates this branch created the mismatches\u2014only that they were discovered while refactoring this system. Fixing a dormant pre-existing defect is keep."
+   ],
+   [
+    "keep",
+    "The hardcoded table `pos/entry-type-patterns` and its disagreement with actual tracker files predate the branch. This commit fixes a pre-existing defect in code that maintained parallel facts \u2014 the table and the trackers were already there, already disagreeing. The two earlier commits in the stack set up picker/destination infrastructure but do not introduce the type-reading problem. This is not a repair of branch-created output; it's fixing what existed before the branch was cut."
+   ]
+  ],
+  "338.4": [
+   [
+    "keep",
+    "This is feature work that builds the next stage of the tracking capability, extending what earlier commits established. It introduces a new mechanism (prompting for types) rather than fixing a defect in what the branch's own commits produced. The stack shows sequential decomposition of the tracking feature; this commit adds the next step in that planned progression."
+   ],
+   [
+    "keep",
+    "This commit implements the next planned feature in a coordinated refactoring of the tracker workflow. It builds on the destination picker infrastructure established by earlier siblings to add type prompting, not to repair a defect or regression in their output. The org-capture interruption problem predates the branch; the solution is designed as sequential decomposition across multiple commits, making this a planned state extension rather than damage repair."
+   ]
+  ],
+  "337.1": [
+   [
+    "keep",
+    "This commit introduces a new Emacs package to solve a pre-existing workflow problem\u2014the friction of delegating to Claude cloud sessions without leaving the editor. The problem (unmet need) predates the branch. The commit establishes foundational state that the later five commits in the stack build upon and refine; later commits fix bugs in what this commit introduces, but that pattern marks this as the feature foundation, not a journey step. Per the tie-breaking principle: the delegation friction was a real, pre-existing gap before the branch was cut."
+   ],
+   [
+    "keep",
+    "Introduces new functionality bridging Emacs to existing dispatch machinery. The problem\u2014friction in sending delegation requests from the editor\u2014predates the branch; this commit adds the solution as the first step of planned work. Later commits in the stack repair defects discovered while running this feature; this commit itself extends pre-branch reality, not the branch's own defects."
+   ]
+  ],
+  "337.3": [
+   [
+    "fold",
+    "A PR review finding in dispatch outcome parsing logic that was introduced by this branch's own feature commit. The faulty Error/creation line ranking is a defect in what the branch built, not a pre-existing problem. Repairing the branch's own output before merge."
+   ],
+   [
+    "fold",
+    "Defect in this branch's dispatch parsing logic, discovered during PR #337 review. The ranking rule introduced by the first commit misbehaves when request prose contains \"Error\", causing false negatives. This repair of the branch's own output is journey, not state."
+   ]
+  ],
+  "337.4": [
+   [
+    "fold",
+    "Defect reported during PR review of this branch's own dispatch feature. The bug is in the repository prompt behavior introduced by the feat commit earlier in the stack. The message provides explicit provenance (\"Reported in PR #337 review\") and does not claim the defective code predates the branch. This is journey (repairing the branch's own output) not state."
+   ],
+   [
+    "fold",
+    "Defect reported in PR #337 review in code introduced by this branch's feature commit. The empty repository input handling bug is a discovered defect in the dispatch/capture mechanism the branch built, not a pre-existing problem. Should be folded into the feature commit before merge."
+   ]
+  ],
+  "338.f": [
+   [
+    "fold",
+    "The commit message explicitly describes the problem becoming consequential only through the branch's changes: \"Until the type became a prompt, the mismatch went unnoticed; now it decides which candidate is selected.\" This matches the fold pattern where elevation by the branch is creation by the branch. Commit 4 in the stack (prompting for tracker entry type) made type declarations matter for UX. The missing declaration for reflection sections was pre-existing but only became a defect requiring repair when the branch changed how types are handled. This fixes a regression introduced by the branch's own changes."
+   ],
+   [
+    "keep",
+    "The commit completes the type-declaration coverage needed for the type-prompting mechanism introduced by earlier stack siblings. The reflection sections' missing type declaration pre-dates the branch; only its consequence is new. This is extending the branch's type system to all destinations, not repairing a defect."
+   ]
+  ],
+  "338.5": [
+   [
+    "keep",
+    "This is sequential decomposition within the branch's feature development. The commit refactors the implementation mechanism (org-capture \u2192 direct file writing) while maintaining identical external behavior, enabling better structure for follow-up work. The earlier org-capture approach, though structurally suboptimal, was not defective in its output\u2014it produced correct results. Without explicit reference to which earlier commit introduced org-capture, and given that the sibling's output worked correctly, this implementation replacement is planned state-building, not repair of a defect. Keep."
+   ],
+   [
+    "fold",
+    "The branch's earlier commits (1-4) settled all prompts and routed through org-capture for writing. This commit recognizes that org-capture is the wrong tool\u2014it introduces hazards (template expansion mangling of % sequences in headings) and unnecessary machinery for purely deterministic operations. The problem (over-composition) only exists because the branch created the scenario. This is repairing a design flaw the branch introduced, not extending pre-branch functionality."
+   ]
+  ],
+  "337.2": [
+   [
+    "fold",
+    "This PR's review (CIA-7/CIA-8) found defects in the dispatch feature introduced by the earlier commit in this stack. The commit fixes those defects: the case-sensitivity bug in the dispatch parser, plus four consistency gaps (knob coverage, missing tests, header hints, task file lifecycle). Repairing defects in what the branch itself introduced, as found by the PR's own review, is fold."
+   ],
+   [
+    "fold",
+    "Review finding (CIA-7/CIA-8) caught case-sensitivity defect in the earlier feat commit's `delegate-dispatch--parse-outcome` parser \u2014 it matched \"error\" case-insensitively when it should only match capital \"Error\". This commit repairs that branch-introduced defect by binding `case-fold-search` nil, adds the missing test coverage (lowercase \"error\" in transcripts), and fixes related consistency gaps in knob specification and test coverage that the review also identified. Pure repair of this branch's own work."
+   ]
+  ],
+  "337.6": [
+   [
+    "fold",
+    "Re-review finding in the branch's own earlier refactor. The refactor's Commentary was incomplete/misleading about the scope of table-driven knobs. This commit corrects that documentation defect\u2014commentary drift introduced by the branch itself\u2014before merge. The problem didn't exist before the branch; the refactor created it by documenting to aspiration rather than boundary."
+   ],
+   [
+    "fold",
+    "This commit repairs incomplete Commentary introduced by the earlier refactor commit in the same branch. The defect was flagged by the branch's own re-review, making it a journey artifact\u2014correcting what the branch built, not fixing a pre-existing problem. The prose promised a clean boundary that doesn't match the actual implementation; this commit corrects that misleading documentation to reflect the real scope of the knob-table's reach."
+   ]
+  ],
+  "335.2": [
+   [
+    "keep",
+    "The problem predates the branch by a year (observed 2024-09-27). This commit fixes a long-standing production defect in the shell environment import guard that has existed in merged history. It does not repair something the branch's own commits introduced."
+   ],
+   [
+    "keep",
+    "The problem (Emacs daemon unable to find git in exec-path) predates the branch by over a year (identified 2024-09-27). The earlier commit merely deletes pre-existing non-functional code; this commit implements the proper solution to a dormant repository defect. This is extending the codebase with a fix to a long-standing issue, not repairing something the branch itself introduced."
+   ]
+  ],
+  "337.5": [
+   [
+    "fold",
+    "The refactor addresses a structural defect in the dispatch machinery that this branch's own feature commit introduced. The scattered knob pattern (repeated across buffer-local state, keymap, commands, headers, and parameters) only came to exist through the branch's commits. The review found this structural problem, and the refactor reifies the knob concept to repair it\u2014a characteristic branch-internal correction. Behavioral tests pass unchanged, confirming this restructures implementation, not functionality."
+   ],
+   [
+    "keep",
+    "This is a refactoring that improves architectural structure without fixing a defect. All 16 behavioral tests pass unchanged, indicating the earlier commits' output worked correctly. The review found architectural friction (high edit cost per change), not broken behavior. The guidelines distinguish repair (which requires misbehavior) from improvement; this commit improves code organization, not fixes something the branch broke."
+   ]
+  ],
+  "335.1": [
+   [
+    "keep",
+    "The commit removes pre-existing broken code (the non-functional exec-path-from-shell wiring due to a :defer t configuration bug) that existed before the branch was cut. While this branch's later commits introduce a replacement mechanism, the deletion itself addresses a defect in merged history, not a regression caused by this branch's own commits. Removing pre-existing dead code is cleanup of pre-branch problems, not repair of branch-introduced defects."
+   ],
+   [
+    "keep",
+    "The broken exec-path-from-shell wiring predates this branch. The commit removes pre-existing dormant defect (code that never ran due to a :defer t misconfiguration), not a regression introduced by the branch itself. Cleanup of dead code from before the branch cut is state (keep), not journey (fold)."
+   ]
+  ],
+  "332.1": [
+   [
+    "keep",
+    "Preparatory refactor extracting pre-existing inline structure to enable new features (hierarchy and grid alignment) the branch is building. Commits that build sequentially on a sibling stay keep; only repair of a sibling's defect folds. Output is unchanged (byte-identical), confirming no regression or damage to repair."
+   ],
+   [
+    "keep",
+    "Preparatory refactor of pre-existing inline code. The commit extracts an entry composition function to support the later feature commits' needs, but addresses a structural improvement rather than a defect introduced by the branch. Output is explicitly unchanged. Without evidence that the branch's own earlier commits created the inline code being refactored, the problem predates the branch."
+   ]
+  ],
+  "332.2": [
+   [
+    "keep",
+    "The commit adds visual hierarchy to a listing whose existence is not stated or shown to originate in this branch. The earlier sibling is labeled \"refactor\" (working with pre-existing code), and the message describes an unstyled output problem without explicit evidence the branch itself introduced the listing or renderer. Adding styling to a pre-existing feature is extending pre-branch capability, not repairing the branch's own work. Per evidence discipline, absent explicit provenance linking this to the branch's own earlier commits, the answer is keep."
+   ],
+   [
+    "keep",
+    "Sequential feature step: the earlier commit established the listing structure, this commit adds the next planned capability (visual hierarchy via faces) rather than repairing a defect in that structure. Building on a sibling is keep; only repairing a sibling is fold."
+   ]
+  ],
+  "335.3": [
+   [
+    "keep",
+    "The code being removed predates the branch. The preceding commit fixed the import, making this workaround redundant without creating the defect the workaround addressed. Removing pre-existing code that the branch's fix made redundant\u2014where only the removability is new\u2014is state, not journey."
+   ],
+   [
+    "keep",
+    "The stale comment and redundant PATH-building code predate the branch. The preceding fix made them obsolete, but the fix itself is correct. This commit removes pre-existing code and commentary whose redundancy/staleness the fix exposed\u2014a cleanup the fix enabled, not a repair of what the branch introduced. Sequential state-building (completing the import fix's work) is keep."
+   ]
+  ],
+  "329.2": [
+   [
+    "keep",
+    "Preparatory refactoring of pre-existing code. The problem (inline path duplication across callers) predates the branch; this commit extracts and names paths that already existed separately. It is not repairing a defect introduced by an earlier sibling (the earlier refactor concerns day-heading format, not file paths). This is sequential decomposition\u2014infrastructure built before the later feature commit that depends on it\u2014which is keep."
+   ],
+   [
+    "keep",
+    "Preparatory refactor extracting pre-existing structural duplication. The problem of scattered path literals predates the branch; this commit centralizes it as a prerequisite for the later feature commit that needs coordinated access to both journal files. Not repairing a defect from an earlier sibling, but enabling planned sequential work."
+   ]
+  ],
+  "329.3": [
+   [
+    "keep",
+    "The commit adds a new feature to complete an incomplete, pre-existing workflow. The problem it addresses (\"only half the workflow was ever built\") predates the branch. Later fixes in the stack lack explicit evidence that they repair defects this commit introduced. By evidence discipline, this is state (extending pre-branch reality), not journey (repairing branch-internal work)."
+   ],
+   [
+    "keep",
+    "The problem predates the branch: the commit message explicitly identifies \"Only half the workflow was ever built\" and \"filing had none\" \u2014 a pre-existing incomplete workflow, not a defect created by this branch's refactors. The commit extends pre-branch reality by implementing the missing capability. Earlier stack commits are refactors of existing structures, not introductions of the problem this commit solves. No signal shows this repairs what the branch built; instead, it builds what the branch (and pre-branch) never completed."
+   ]
+  ],
+  "329.1": [
+   [
+    "keep",
+    "Preparatory refactor addressing pre-existing structural friction. The existing datetree-heading-p predicate and the problem that its day pattern isn't exposed for reading dates represent pre-branch code and unmet need. This commit extracts and names that pattern to enable the branch's later feature work (moving entries between datetrees). Refactoring pre-existing code to remove friction for new work is sequential decomposition and stays keep, not a repair of the branch's own introduced defects."
+   ],
+   [
+    "keep",
+    "Preparatory refactoring. The commit extracts a pre-existing inlined pattern and adds a new capability to read dates from datetree headings. This is infrastructure enabling the later feature \"relocate the day's staged captures into the journal\" that appears later in the stack. The architectural issue (inlining) predates the branch; only its necessity for the planned feature is new. Not a repair of breakage, but a step in sequential capability building."
+   ]
+  ],
+  "329.4": [
+   [
+    "fold",
+    "The defect\u2014overwriting global match data\u2014was introduced by an earlier commit in this branch that restructured the code to route through `agenda/datetree-day-date`, changing from `string-match-p` (safe) to `string-match` (with side effects). This commit repairs that unintended consequence of the branch's own refactor. Identified as a review finding on this PR (CIA-7.4), it fixes drift in what the branch built, not a pre-existing problem."
+   ],
+   [
+    "fold",
+    "The commit repairs a defect introduced by the branch's own earlier refactor. The problem\u2014`agenda/datetree-heading-p` clobbering match data\u2014did not exist before the branch; it was created when an earlier commit routed the predicate through `agenda/datetree-day-date` and changed its matching primitive from `string-match-p` to `string-match`. This is a review finding (CIA-7.4) in code the branch built, and the fix restores the side-effect-free contract of a sibling's output. It is journey, not state."
+   ]
+  ],
+  "329.6": [
+   [
+    "fold",
+    "This commit repairs a regression in the branch's own work, documented by review finding CIA-7.5. Earlier commits in the stack introduced code that depends on `agenda/journal-file` from funcs.el, but incorrectly accessed it from packages.el before funcs.el was loaded. This commit fixes that load-order defect by moving `agenda/files` to funcs.el. The problem did not exist before this branch; it was created entirely by the branch's own earlier commits."
+   ],
+   [
+    "fold",
+    "Review finding (CIA-7.5) in branch-created code. The earlier commits in this stack introduced the journal-relocation feature and refactors that depend on `agenda/journal-file`. This commit fixes a defect those earlier commits created: they established the dependency but got the load order wrong. The problem only exists because of the branch's own work; it is not a pre-existing issue."
+   ]
+  ],
+  "332.3": [
+   [
+    "keep",
+    "The commit implements grid alignment as an enhancement to the visual hierarchy introduced by commit 2. Both commits are framed as features building sequentially. The message describes the solution without explicitly stating this fixes a defect in commit 2's output, and the stack shows complementary scope (hierarchy then alignment), suggesting this is planned follow-up work, not a repair. Per evidence discipline, unstated provenance defaults to keep."
+   ],
+   [
+    "keep",
+    "Sequential feature building: the branch improves the cognition listing in steps (refactor, hierarchy, grid alignment). This commit extends what the previous commit enabled rather than repairing a regression it introduced. The grid alignment problem is described as pre-existing (entries placed sequentially with fixed separators), not as damage from the hierarchy commit. The solution is architectural work (layout functions, measurements, proper rendering) that completes planned visual improvements\u2014unfinished state, not damage."
+   ]
+  ],
+  "329.7": [
+   [
+    "fold",
+    "Review finding (CIA-7.3) in this PR detected a defect the branch created: earlier commits reorganized journal handling and relocated the capture target, but agenda/heatmap-files wasn't updated to follow, leaving it silently scanning the old path. This commit repairs that structural inconsistency within the branch's own output. The problem did not exist before the branch repointed org-journal-dir."
+   ],
+   [
+    "keep",
+    "The defective code (hardcoded `agenda/heatmap-files` path) predates the branch. Though a review finding identified it, the message states the hardcoding is pre-existing design. This commit extends the branch's new configuration mechanism (`agenda/journal-file` as canonical journal location) to include the heatmap, completing the branch's refactoring\u2014sequential work, not repair of what the branch broke."
+   ]
+  ],
+  "329.8": [
+   [
+    "fold",
+    "Review finding (CIA-8.5) from this PR identified inadequate test coverage in the branch's own test suite for the feature introduced by earlier stack commits. The commit adds test cases to properly verify promised behaviors that earlier fixtures could not distinguish from wrong implementations, correcting a defect in the branch's artifacts discovered during review."
+   ],
+   [
+    "fold",
+    "Review finding on this PR (CIA-8.5) of insufficient test coverage for behavior introduced by earlier commits in this stack. The relocation feature's explicit promises about \"every finished day\" and timestamp selection were untested; this commit adds the three test cases needed to pin those promises and verify they hold. Sibling commits introduced the behavior; this commit provides the missing verification tests\u2014a repair of the branch's own output."
+   ]
+  ],
+  "328.1": [
+   [
+    "keep",
+    "The problem predates the branch: command-census's lossy count-only aggregation and the need to mine invocation patterns for friction analysis existed before this branch was cut. This commit adds new logging capability to solve that pre-existing limitation. It is feature addition building state, not repair of the branch's own work. No earlier siblings exist to have introduced the repaired object."
+   ],
+   [
+    "keep",
+    "This is a new feature (feat prefix) that extends pre-existing infrastructure (command-census) with new capability (event logging). The problem it addresses\u2014lossy aggregation at record time\u2014is a constraint of the pre-existing system, not a defect created by this branch. No sibling commit in the stack introduced the repaired object, and the message contains no review finding or signal of repairing the branch's own work. The commit builds on prior infrastructure, not corrects it."
+   ]
+  ],
+  "325.1": [
+   [
+    "keep",
+    "The problem\u2014mode-line spinner disappearing during overlapping LLM requests\u2014predates the branch. The commit message establishes that the boolean tracking mechanism existed in the codebase, the count-based design was pre-existing, and the count variable was already declared but unwired. This is implementing a known design to fix a known defect, not repairing the branch's own creation."
+   ],
+   [
+    "keep",
+    "The commit fixes a pre-existing defect in the activity tracking system. The reference-count variable was declared in the pre-branch design but never implemented; a boolean was used instead, causing the spinner to disappear incorrectly during concurrent requests. The problem is described as an observed existing issue (\"Any workflow that overlaps requests hits it\"), not something created by this branch. No explicit signal in the message or stack shows that an earlier commit in this branch introduced the defective boolean mechanism. Without provenance evidence pointing to a sibling that created the problem, this stays keep as a bug fix to pre-existing code."
+   ]
+  ],
+  "329.9": [
+   [
+    "fold",
+    "Review finding (CIA-7.3) in the branch's own output: documentation duplication in the journal-relocate feature introduced by earlier commits in this stack. The commit fixes structural confusion in how the feature's rationale was explained across two files, making the reference one-way instead of circular. This is journey documentation that should be folded into the commits that introduced the feature."
+   ],
+   [
+    "fold",
+    "This commit fixes a documentation defect found in this PR's review (CIA-7.3). The duplication of explanation arose during this branch's own feature development \u2014 the rationale was written first in `agenda/journal-capture-file`, then repeated in journal-relocate.el's Commentary as separate parts of the workflow were built. The commit repairs commentary drift and structural inconsistency created by the branch's own commits, establishing a single source of truth for the explanation. This is journey documentation, not state \u2014 it belongs folded into the commit that introduced the duplication."
+   ]
+  ],
+  "325.2": [
+   [
+    "fold",
+    "Repairs defects in the reference-counting mechanism introduced by the earlier sibling commit. The leak problem did not exist before the branch\u2014it was created by replacing the self-healing boolean with counting. The structural defect (unsafeguarded exit paths) is the branch's own work, and this commit hardens it before merge."
+   ],
+   [
+    "fold",
+    "This commit repairs the exit-path handling defects in the counting mechanism introduced by the earlier stack sibling. The problem statement explicitly establishes causation: \"Under the replaced boolean a leak self-healed at the next request's completion; the count made it permanent.\" The counting mechanism elevated a pre-existing coordination problem from self-healing to permanent, creating a critical defect that this branch itself must fix. The solution (one-shot release closure, exactly-once-by-construction) is architecturally specific to the counting semantics the branch introduced."
+   ]
+  ],
+  "325.3": [
+   [
+    "fold",
+    "Re-review found structural defects in the immediately prior commit's \"release on every exit path\" implementation: non-streaming success leaked registration, quit was unhandled, and -patch-prompt broke its own callback contract. This commit makes the invariant structural and actually enforces it. This is a THIS PR review finding of a defect in what the branch's own sibling introduced."
+   ],
+   [
+    "fold",
+    "This commit repairs structural defects discovered by re-review in the immediately preceding commit's implementation of the \"release on every exit path\" invariant. Three path families violated the invariant that earlier commit introduced. The repair is to the branch's own work, making it journey rather than state."
+   ]
+  ],
+  "329.5": [
+   [
+    "fold",
+    "Review findings CIA-7.2 and CIA-7.3 from this PR's review identified structural faults (unnamed concepts, repeated patterns) in code the branch introduced. The message cites these findings without stating the defective code predates the branch. By the explicit rule, a defect reported by this PR's own review in what the branch builds is fold unless the message claims otherwise. This commit repairs the branch's own output."
+   ],
+   [
+    "fold",
+    "This PR's review (CIA-7.2 and CIA-7.3) found structural duplication in code the branch itself introduced. The commit repairs unnamed concepts and repeated patterns in the feature and refactor work that precedes it in the stack, confirmed by byte-identical test output."
+   ]
+  ],
+  "325.4": [
+   [
+    "fold",
+    "The commit repairs defects in what earlier stack commits built: the callback-enumeration release mechanism. The message explicitly cites the previous commit as the source (\"The previous commit's release...\") and identifies why that approach fails (missing cases in callback enumeration). The defects (response-less completion, reasoning-invocation replay, skipped callbacks) only exist because those earlier commits introduced the callback-based strategy. Test scenarios described as \"red before this change\" confirm these are gaps in the branch's own incomplete solution, not pre-existing issues. This is structural repair of the stack's own work, not extension of pre-branch reality."
+   ],
+   [
+    "fold",
+    "This commit repairs a defect in commit #3's enumeration-based approach. The previous commit introduced a flawed implementation (enumerating callback states for release), which this commit explicitly identifies as broken (\"enumerations miss cases\"). Rather than refining that work, this commit replaces the fundamental design with an FSM-based approach. Since the problem was created by a sibling commit within this branch, this commit documents the journey of fixing that defect and should be folded into commit #3 before merge."
+   ]
+  ],
+  "325.6": [
+   [
+    "fold",
+    "The commit repairs a regression created by this branch's own earlier commits. The root cause explicitly traces the defect to the branch's widening of `cognition/-patch-prompt`'s contract (\"was just made to report every outcome\") without updating the caller. The branch's test suite caught this as a failure (\"the first red\"), and this commit fixes it. The problem did not exist before the branch; it came into being through the branch's own changes and must be folded into the commit that introduced the defect."
+   ],
+   [
+    "fold",
+    "This commit repairs a defect created by an earlier sibling in the branch that widened the contract of cognition/-patch-prompt to report all outcomes. That change made a previously unreachable code path (ignoring the outcome) reachable, turning a latent omission into active bug. The caller was not revisited when the contract moved. This commit fixes the caller to handle the new contract correctly\u2014repairing what this branch built, not extending pre-branch reality."
+   ]
+  ],
+  "325.7": [
+   [
+    "fold",
+    "This commit corrects indentation and formatting defects introduced by earlier commits in this same branch. The message explicitly states \"The regions this branch renested read against their own structure\" and describes how an earlier attempt at repair during this branch's work created formatting problems (incorrect indentation mode, bundled into a behavioral commit). The fix applies the reindentation guidance rule: \"reindenting regions the branch restructured\" is a canonical fold case\u2014it repairs the branch's own artifacts after the fact rather than addressing pre-existing problems. The problem (improper indentation of restructured code regions) only came into existence through the branch's own commits; it did not predate the branch."
+   ],
+   [
+    "fold",
+    "This commit repairs formatting defects and structural remnants that exist solely because the branch itself restructured these regions. The message explicitly signals: 'The regions this branch renested' and describes indentation drift, a vestigial `progn` wrapper, and misaligned guards \u2014 all consequences of the branch's own earlier structural changes (visible in the stack: five prior commits that restructured the cognition module). The indentation problem only became a problem through this branch's own commits; it did not exist in merged history before the branch was cut. This is cleanups the branch's restructuring enabled \u2014 completing the branch's artifacts after the fact by reindenting regions the branch itself built. The sole non-whitespace edit (the `progn` unwrap) is removal of code the branch's earlier changes made vestigial, and the root-cause narrative traces it back to an earlier in-branch repair attempt that introduced the formatting regression. It repairs the journey, not pre-existing reality."
+   ]
+  ],
+  "321.2": [
+   [
+    "fold",
+    "This commit repairs a defect found during review of this PR in the M-q toggle feature introduced by the immediately earlier sibling commit. The feature's split verdict/action derivation was a structural fault of that earlier commit; this fix eliminates the divergence. The defect did not exist before the branch and only arose through that earlier commit's implementation."
+   ],
+   [
+    "fold",
+    "Review of this PR found a regression in the M-q toggle feature (introduced by the earlier feat commit). The predicate and action derived text bounds independently, causing the verdict to judge different text than what got filled. This commit deletes the divergent predicate and repairs the defect operationally. The problem was created by this branch's own work and discovered in this PR's review\u2014a clear fold case of repairing the branch's output before merge."
+   ]
+  ],
+  "321.1": [
+   [
+    "keep",
+    "The commit introduces a new feature addressing a pre-existing user need (better fill/unfill toggling without prefix arguments). The problem predates the branch; only the solution is new to this commit. It is the foundation commit in the stack; later commits refine its implementation. It belongs in the unmerged state."
+   ],
+   [
+    "keep",
+    "This commit introduces a new feature to address a pre-existing UX problem (the friction of requiring prefix arguments to toggle M-q behavior). The existing function and its limitation predate the branch. This is an extension of pre-branch reality, not a repair of work introduced by the branch itself."
+   ]
+  ],
+  "325.5": [
+   [
+    "keep",
+    "The protocol duplication problem predates the branch (both dispatch sites hand-copied it pre-branch). Earlier commits successfully restructured the release invariant (tests pass unchanged). This commit extracts the duplicated protocol to complete that restructuring \u2014 building on siblings' correct work rather than repairing their failures. It's planned sequential extension, not damage correction."
+   ],
+   [
+    "keep",
+    "The protocol being extracted predates the branch and was working correctly at both existing sites. The earlier commits left this as planned unfinished refactoring (convention without home), not damage. This commit extends their structural work to the remaining pieces\u2014a sequential refactoring step, not a repair of broken output. The brother commits produced right output, just incomplete; the remaining work is planned state."
+   ]
+  ],
+  "325.8": [
+   [
+    "fold",
+    "The commit hardens the activity indicator system that this branch introduces. Earlier commits built a mechanism that wires cleanup to gptel's specific state handlers; this commit adds validation to detect if those handlers have been renamed upstream (as gptel's documentation warns they may be). The defect\u2014silent failure if the state names change\u2014is in what the branch itself built. The scaffolding tests confirm this was an oversight in the branch's design. This is repair of the branch's output, not extension of pre-branch reality."
+   ],
+   [
+    "fold",
+    "This commit hardens the cleanup mechanism earlier commits in this branch introduced. The defect (silent failure when gptel renames terminal states) exists only because the branch coupled the cleanup to gptel's state names by literal. The test scaffolding confirms the branch's code fails this case before this commit. Repairing a latent defect in what the branch built is fold."
+   ]
+  ],
+  "321.4": [
+   [
+    "fold",
+    "Review finding in THIS PR's stack: the probe mechanism introduced by the earlier sibling (commit 2) has a defect (O(buffer) performance instead of O(1)), found during this PR's review. The commit repairs the branch's own output, not pre-branch code. The message's \"Review:\" marker and explicit tradeoff explanation confirm the problem exists only in this branch's work."
+   ],
+   [
+    "fold",
+    "This commit optimizes the performance of the probe mechanism introduced by the earlier sibling commit 'fix[...]: judge wrappedness by probing the fill itself' (commit #2 in the stack). The message explicitly marks this as a review finding ('Review:' at the problem statement's head) of a defect in the probe's implementation\u2014O(buffer) work from whole-buffer snapshots. The root-cause explanation directly references 'the previous fix' and 'the previous defect,' establishing clear authorship: commit #2 introduced the probe; this commit repairs its performance characteristics. The problem (inefficient probe implementation) came into existence through this branch's own commits and is discovered during this PR's review, making it journey work that must be folded into the commit it corrects before merge."
+   ]
+  ],
+  "321.5": [
+   [
+    "fold",
+    "A defect reported by this PR's own review was found in a test case introduced by an earlier commit on this branch. The round-trip test is redundant per the test-writing standard; only the branch's own earlier commits created this defect. The commit removes that redundant test, repairing the branch's own test suite structure before merge."
+   ],
+   [
+    "fold",
+    "The commit removes a test case introduced by an earlier sibling in this branch's stack. The message explicitly cites a THIS PR review finding: 'Review asked for the suite to be re-evaluated against the test-writing reference.' The round-trip test case violates the test-writing standard that every case must name a distinct scenario or boundary\u2014a structural defect in what this branch's own test commit built. The problem came into existence when the branch added the test case and only became visible through this PR's review. This is a repair of the branch's own output, not an extension of pre-branch reality."
+   ]
+  ],
+  "321.3": [
+   [
+    "fold",
+    "The commit adds tests to pin behaviors of the M-q toggle feature introduced by earlier commits in this branch. The root cause explicitly states these code paths exist in what the branch built but weren't reached by tests. This is completing the branch's artifact by covering previously untested behaviors, which per the guidelines is a fold case: \"tests added to pin behavior a sibling commit introduces.\" The behaviors are not bugs\u2014the message confirms nothing failed\u2014but they are untested decisions in code the branch built."
+   ],
+   [
+    "fold",
+    "The test commit adds coverage for three behaviors (prefix inertness, mixed regions, boundary point) introduced by the branch's own earlier commits. These behaviors lived in untested code paths created by the feature and fix commits. Adding tests to pin behaviors the branch introduced is completing the branch's own artifacts\u2014the test problem did not exist before the branch cut, and only the branch's own work created the need for this coverage."
+   ]
+  ],
+  "321.6": [
+   [
+    "fold",
+    "This commit repairs logic defects introduced by earlier siblings in the stack. The M-q toggle feature and its wrappedness-detection logic are entirely new to this branch. Real use of the branch's own output revealed the structural definition of \"wrapped\" was wrong, causing M-q to misbehave in the most common scenario (re-tidying edited paragraphs). This commit fixes that defect by swapping the probe direction and correcting the tests that earlier pinned the incorrect behavior. It re-specifies behavior introduced by the branch's own prior commits, not pre-existing code."
+   ],
+   [
+    "fold",
+    "This commit repairs the branch's own earlier work. The feature and wrappedness detection were introduced by earlier siblings in this stack; the test suite explicitly pinned the (now-wrong) structural definition \"on purpose.\" Real-world use surfaced that the branch's own M-q toggle broken its primary scenario. The fix respecifies the core operational model and updates the suite\u2014damage to what the branch built, not pre-branch extension. Should be folded into the feat or earlier fix commit that introduced the toggle and wrappedness detection."
+   ]
+  ],
+  "319.3": [
+   [
+    "fold",
+    "PR review found four defects in the stand-down mechanism, version coordination, and mechanical linking introduced by the earlier feat[dsq] commit in this same stack. The defects\u2014unreachable crisis code path, form-conditional skip, undeclared vocabulary values, and version split\u2014were created by the branch's own earlier work and have no pre-branch origin. This commit repairs what the branch built, making it journey rather than state."
+   ],
+   [
+    "fold",
+    "Review finding fixing defects in the branch's own earlier commits: crisis stand-down dead code, version mismatch, and lack of mechanical link between note and code all stem from design choices in prior siblings (DSQ feature introduction). The commit repairs these structural faults, not extending pre-branch reality."
+   ]
+  ],
+  "319.2": [
+   [
+    "keep",
+    "The commit implements a feature addressing a documented pre-existing need (journal entry dated 2026-07-20 plus evidence from 400-day corpus analysis). It is new functionality extending the journal system, not repair of defects introduced by this branch. The problem\u2014lack of day-level summaries causing impractical retrospectives\u2014existed before the branch was cut."
+   ],
+   [
+    "keep",
+    "Addresses a pre-existing problem documented in the 2026-07-20 journal entry before the branch was cut. The commit introduces new functionality (Day Signature Questionnaire) responding to a systematic gap in the 400-day corpus analysis. Later commits in the stack are refinements to this feature, not repairs of pre-branch defects."
+   ]
+  ],
+  "319.4": [
+   [
+    "keep",
+    "The earlier commits intentionally introduced a note correctly structured to receive validation data, with explicit notation (\"on completion\") about when that data would arrive. The note was not wrong or broken\u2014it was unfinished by deliberate design, as the validation study could not complete before the instrument shipped. This commit adds the piece that was deferred as planned state, not a repair of damaged output. The validation study itself and the need to document it are pre-branch concerns (any scientific instrument requires validation); the branch's own trade-off decision (\"would have delayed a finished, tested deliverable\") confirms this was sequential planned work, not discovered defect. Completing what a sibling deliberately deferred is keep; only repairing a sibling's misbehavior is fold."
+   ],
+   [
+    "keep",
+    "The earlier sibling deliberately deferred validation results (explicitly noted in ROOT-CAUSE as a decision to avoid blocking the deliverable) and promised them \"on completion\". This commit delivers on that planned promise as sequential decomposition. The need predates the branch; the deferral was intentional, not a defect; this adds the planned next step to establish the full final state."
+   ]
+  ],
+  "319.5": [
+   [
+    "keep",
+    "The v2.0 redesign addresses a changed requirement from owner review (PR #319), not a defect in v1. v1 works as designed for measurement fidelity; the mismatch is against owner's deployment needs (speed, transferability, simplicity). This is new planned capability extending the branch's earlier v1 work, not repair of v1's output. The owner's request marks a new requirement, not a discovered defect in the branch's own artifacts."
+   ],
+   [
+    "keep",
+    "The owner's review requested a new behavior redesign (v2.0) based on feedback about v1, which was this branch's own first cut. Per the judging criteria, a reviewer REQUEST for new or different behavior\u2014as opposed to a FINDING of a defect\u2014remains keep even when addressing the branch's own work. The message frames this as a capability request (efficient, transferable questionnaire) rather than a defect discovery, making this planned next-step work rather than damage repair."
+   ]
+  ]
+ }
+}
