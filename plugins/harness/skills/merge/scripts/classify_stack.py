@@ -75,7 +75,14 @@ def classify(rubric, message, stack):
                 capture_output=True, text=True, timeout=240, cwd=neutral_cwd())
             if r.returncode != 0:
                 return None, "judge exited %d: %s" % (r.returncode, r.stderr[:120])
-            parsed = json.loads(r.stdout).get("structured_output")
+            parsed = json.loads(r.stdout)
+            if isinstance(parsed, list):
+                # 2.1.x CLI: stdout is a JSON array of events; the
+                # terminal "result" event carries structured_output.
+                # Older CLIs print that result object bare.
+                parsed = next((e for e in reversed(parsed)
+                               if e.get("type") == "result"), {})
+            parsed = parsed.get("structured_output")
         if parsed and parsed.get("verdict") in ("fold", "keep"):
             return parsed["verdict"], parsed.get("reason", "")
         return None, "no verdict in judge output"
