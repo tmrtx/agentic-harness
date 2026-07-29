@@ -66,6 +66,12 @@ chaining, models&maintainers are the audience. cite the rule and proceed. if you
 find yourself wanting to ask and no rule covers it, note the gap in your final
 report — that is a hole in this skill, and it is worth more than the answer.
 
+every question opens with a plain-language tldr: what happened, why it matters,
+what is being decided — self-contained, no session context assumed. the
+operator merges many stacks across many sessions and arrives at your question
+cold; a question that presumes your context earns "i don't understand what's
+going on" and wastes the round trip.
+
 for changes, ground each option in a counterfactual before asking — sample one
 representative case and show before/after. options are worlds to pick between,
 not questions about preference:
@@ -87,12 +93,26 @@ for anything that survives past the questions: do the work in the worktree, then
 result — `git log` before/after, or the message diff — and confirm once, immediately
 before push. that is the single gate. one round trip, not a tree.
 
+when a mutation drops or rewrites reviewable artifacts (tests, comments,
+messages), the gate shows each candidate's full source in the question tool's
+previews — one conceptual group per question, one artifact per drop-option —
+because the owner judges from source, not from your summary. their verdict
+overrules the house table in either direction; record overrides with their
+reason.
+
 ## typical actions
 
 your tasks will involve actions such as:
 - rebasing because the main history was rewritten
 - determining whether to keep or discard commits with the assistance of
-  `${CLAUDE_SKILL_DIR}/scripts/classify_stack.py`
+  `${CLAUDE_SKILL_DIR}/scripts/classify_stack.py`. the classifier serves one
+  goal: a landed stack sized by responsibility, not by authored commit count.
+  per-commit bisect/revert isolation only pays when the change carries weight,
+  so a small-responsibility branch folds to a single protocol commit even when
+  authored and reviewed as a series. the rubric judges per-commit provenance
+  only — "the whole branch is one responsibility" is the merger's read, and
+  folding an inherited reviewed stack is an operator call: surface it at the
+  gate, don't assume it.
 - rewriting the commit stack: folding commits, editing out suites failing the
   earn-its-place table (`harness:executable-expectations`), surgery on the commits
   themselves, rewriting commit messages
