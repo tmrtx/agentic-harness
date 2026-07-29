@@ -36,8 +36,10 @@ Counting reads ANTHROPIC_TOKEN_DIFF_KEY and nothing else. The generic names
 are deliberately not consulted: Claude Code claims ANTHROPIC_API_KEY for its
 own auth, so a shared name set once for counting would silently redirect a
 session's model calls - including this skill's own subagent judges - onto that
-key's billing. One variable, one purpose. ANTHROPIC_BASE_URL overrides the
-endpoint host.
+key's billing. One variable, one purpose - and the endpoint follows the same
+isolation: sessions repoint the generic ANTHROPIC_BASE_URL at local proxies
+that do not serve count_tokens, so counting reads only
+ANTHROPIC_TOKEN_DIFF_BASE_URL (default https://api.anthropic.com).
 
 Exit codes: 0 counted; 2 printed a `Token diff: unavailable (<reason>)`
 line (expected degradation: missing credentials, unreachable endpoint,
@@ -159,7 +161,7 @@ def main():
 
     counter = Counter(
         args.model, {"x-api-key": key},
-        os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
+        os.environ.get("ANTHROPIC_TOKEN_DIFF_BASE_URL", "https://api.anthropic.com"),
     )
     added = removed = 0
     try:
