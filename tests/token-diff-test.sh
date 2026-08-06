@@ -62,7 +62,7 @@ srv.serve_forever()
 PY
 python3 "$TMP/stub.py" "$TMP/port" & STUB_PID=$!
 for _ in $(seq 50); do [ -s "$TMP/port" ] && break; sleep 0.1; done
-export ANTHROPIC_BASE_URL="http://127.0.0.1:$(cat "$TMP/port")"
+export ANTHROPIC_TOKEN_DIFF_BASE_URL="http://127.0.0.1:$(cat "$TMP/port")"
 export ANTHROPIC_TOKEN_DIFF_KEY="test-key"
 
 # Fixture repo. Committed state -> staged state, word counts in parentheses:
