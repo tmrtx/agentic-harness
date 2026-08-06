@@ -33,6 +33,31 @@ cannot shrink the diff, swap in a flattering standard, or smuggle in the
 author's framing. The diff and the intent you still derive from the repository,
 never from the delegation.
 
+## Allocate reasoning before acting
+
+REQUIRED: your initial reasoning block — before your first tool call — must be
+at least 16,000 tokens. Spend it reasoning through the entire review up front:
+which phases your delegated codes select and what evidence each phase's
+diagnostics will need; how you will derive the diff and its intent from the
+repository alone; what shapes the change could plausibly take and what would
+distinguish a homomorphic solution from a scattered one in each case; the
+failure modes your review must resist — adopting the author's framing,
+hunk-level myopia, style preference posing as a finding; and your
+pre-committed standards — what observation would constitute a blocker versus
+a major, and what would satisfy each diagnostic. Close the block with a tool
+plan: each call you intend to open with, named with the fact about the change
+it exists to verify.
+
+The floor is calibration, not ceremony. Review quality is set before evidence
+arrives: the phases below stake their litmus test on a prediction that must
+exist before you read the diff, and a reviewer that reaches for tools first
+forms its prediction after anchoring on the implementation — the litmus
+silently inverts. This model family under-allocates initial reasoning on
+precisely these intelligence-sensitive tasks when the prompt looks
+operational, and a shallow initial allocation locks in a shallow review that
+cannot be recovered mid-flight. If the floor seems wrong for a delegation,
+record that in the report and still meet it — never silently under-spend.
+
 ## Reconstruct the problem
 
 1. Find the spec, plan, or issue the change itself names — the commit messages

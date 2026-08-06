@@ -39,6 +39,13 @@
     "ground-truth": "derived",
     "since": "2026-07-27",
     "subject": "each commit of a finished PR stack at merge time: its problem predates the branch (state, survives the merge) vs was created by the branch's own commits (journey, folded by the merger)",
-    "mechanism": "the /merge skill runs skills/merge/scripts/classify_stack.py; claude-haiku-4-5-20251001 judges each commit's message plus the ordered sibling listing against skills/merge/rubric.md; leftover fixup!/squash!/amend! subjects are folds without a model call; the merger folds on fold verdicts, may overrule (it, not the model, is the merger), and re-runs the judge on the folded stack to verify a clean landing; nothing blocks a live implementer session — the implementer's branch is a licensed scratchpad; calibration corpus and held-out error rates live in evals/stack-provenance (labels derived from the principal's recorded fold actions in mono-repo PR history)"
+    "mechanism": "the /merge skill runs skills/merge/scripts/classify_stack.py; claude-haiku-4-5-20251001 judges each commit's message plus the ordered sibling listing against skills/merge/rubric.md; leftover fixup!/squash!/amend! subjects are folds without a model call; the merger folds on fold verdicts, may overrule (it, not the model, is the merger), and re-runs the judge on the folded stack to verify a clean landing; nothing blocks a live implementer session \u2014 the implementer's branch is a licensed scratchpad; calibration corpus and held-out error rates live in evals/stack-provenance (labels derived from the principal's recorded fold actions in mono-repo PR history)"
+  },
+  "ORC-9": {
+    "oracle-class": "runtime",
+    "ground-truth": "specified",
+    "since": "2026-08-06",
+    "subject": "the reviewer subagent's initial reasoning allocation: >=16,000 reasoning tokens before its first tool call",
+    "mechanism": "the run's first generation in the session trace: the observability proxy labels a zero-reasoning turn 'response (NO REASONING)' (WARNING) and records per-turn output tokens; equivalently, thinking-before-first-tool extracted from the subagent transcript JSONL; checked on demand, not hook-enforced"
   }
 }
