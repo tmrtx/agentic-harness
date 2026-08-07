@@ -1,4 +1,28 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "showThinkingSummaries": true,
+  "skillOverrides": {
+    "batch": "off",
+    "claude-api": "off",
+    "code-review": "off",
+    "dataviz": "off",
+    "debug": "off",
+    "design-sync": "off",
+    "fewer-permission-prompts": "off",
+    "loop": "off",
+    "run": "off",
+    "run-skill-generator": "off",
+    "simplify": "off",
+    "verify": "off",
+    "deep-research": "off",
+    "artifact-design": "on",
+    "update-config": "off",
+    "keybindings-help": "off",
+    "session-start-hook": "off",
+    "init": "off",
+    "review": "off",
+    "security-review": "off"
+  },
   "extraKnownMarketplaces": {
     "agentic-harness": {
       "source": { "source": "github", "repo": "tmrtx/agentic-harness" },
