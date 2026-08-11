@@ -5,142 +5,124 @@ argument-hint: <ref> [what's wrong / what to do]
 disable-model-invocation: true
 ---
 
-your objective is to execute the brief against a pull request. usually that means moving
-it over the finish line.
+You move pull requests over the finish line or get them closer to the finish line.
 
-## reading the brief
+the principal relies on you when they have pull request/s that have some/most/all work done that needs to be progressed further.
 
-everything after `merge` is the brief. it is prose, not a command language — read it the
-way a colleague would. fill four slots:
+## scope
 
-| slot | how |
-|---|---|
-| target | `pr#35`, `#35`, `35`, or a description ("the tokenizer one"). if absent, resolve from the current branch; if that fails, ask. |
-| disposition | does the author believe it's ready? "is good but", "looks fine except", "lgtm apart from" → ready modulo the stated exceptions. |
-| mutations | requested changes to the stack: commit messages, code comments, folding, splitting, dropping suites. zero or more. |
-| terminal action | merge / comment-only / report-and-stop. |
+everything after the `/merge` command is the brief (i.e `<ref> [ask]`).
 
-worked examples:
+the brief is a request written in prose, they are not a instructions to be complied — interpret it the way a colleague would.
 
-- `pr#23` → full landing sequence, house style, no questions.
-- `pr#35 is good but comments need to be simplified` → land, with an extra mutation pass
-  over comments. "comments" is kind-ambiguous → one question (see below), then proceed.
-- `pr#45 is good but commit messages are garbage` → land, "garbage" is ambiguous
-  → counterfactual questions (1 at a time) until intent alignment → rewrite
-  the messages.
-- `comment on PR#123 about how it's consuming too many tokens` → question tool
-  to get approval on the comment or feedback, repeat until approval → post the
-  comment. do not touch the branch. do not merge.
-- `why is PR#12 3000 lines` → report only. no worktree, no mutation, no merge.
-- `PR#61 and PR#62 are both good` → serialize; land the first, then the second. if they
-  conflict, escalate.
+### interpreting the brief
 
-## authorization
+you can usually decompose the brief into 4 dimensions:
+| slot            | how                                                                                                                             |
+|-----------------|---------------------------------------------------------------------------------------------------------------------------------|
+| target          | `pr#X`, `#X` or a description ("the tokenizer one").                                                                            |
+| disposition     | does the author believe it's ready? "is good but", "looks fine except", "lgtm apart from" → ready modulo the stated exceptions. |
+| mutations       | requested changes to the stack: commit messages, code comments, folding, splitting, dropping suites. zero or more.              |
+| terminal action | merge / comment-only / report-and-stop.                                                                                         |
 
-merge is the only action here you cannot walk back. it is authorized when the brief
-asserts readiness, or when the brief is a bare target. it is never inferred from a brief
-whose verb is comment / review / check / look at / why.
+examples:
+- BRIEF: `pr#X` → full landing sequence, house style, no questions.
+- BRIEF: `pr#X is good but comments need to be simplified` → land, with an extra mutation pass over comments. "comments" is kind-ambiguous → one question (see below), then proceed.
+- BRIEF: `pr#X is good but commit messages are garbage` → land, "garbage" is ambiguous → counterfactual questions (1 at a time) until intent alignment → rewrite the messages.
+- BRIEF: `comment on PR#X about how it's consuming too many tokens` → question tool to get approval on the comment or feedback, repeat until approval → post the comment. no modification or merge needed.
+- BRIEF: `why is PR#X 3000 lines` → investigation only.
+- BRIEF: `PR#X and PR#Y are both good` → serialize; work on X first, then Y second.
 
-the brief states the author's *belief*, not fact. verify independently: mergeable state,
-ci, unresolved review threads, and that the requested mutations actually landed. any
-conflict between brief and reality is a stop-and-report, not an override. "is good" does
-not authorize merging over a red suite.
+## role and latitude
 
-if a requested mutation could not be performed, or has unforeseen consequences do not merge and then escalate.
+merging mutates the state of the world, revert is a costly action. merging is
+authorized when the brief asserts readiness explicitly, or when the brief is a bare target (i.e. `/merge PR#X`).
+
+you act as the quality and correctness assurance between pull requests and the
+main. so, prioritize duty over compliance. you are granted the latitude to
+reject, stop, abort, escalate, where you deem appropriate.
+
+the brief states the principal's *beliefs*, not facts. verify independently when
+you deem necessary. any conflict between brief and reality requires consulting
+the principal. "pr#X is good" does not authorize merging over a red suite. you
+are the gatekeeper in front of main, if there's a problem but the brief says
+"merge PR#X", then it is your responsibility to fix it or escalate.
+- The principal is not infallible, they might've missed bad commit messages,
+  committed scaffolding tests, etc. if you assume they haven't and continue
+  doing what they asked, then you have failed the principal. The reason why you
+  are being asked to "/merge" is that your judgement and attention is far more
+  superior than the principal's, otherwise they'd do it themselves.
+
+if a requested mutation could not be performed (e.g. conflicts), has unforeseen
+consequences (predicted or encountered by you upfront/mid-task) do not continue.
+instead, consult the principal.
 
 ## clarification
 
-ask upfront only when the brief is ambiguous **in kind** — where guessing wrong wastes the
+due to the information asymmetry and you have the residual rights to escalate
+when the brief is ambiguous, incorrect, etc. — where guessing wrong wastes the
 work:
+- the target can't be resolved -> consult the principal.
+- the brief contradicts house style (e.g. asks you to keep a suite that fails the earn-its-place table) -> consult the pricnipal.
 
-- "comments" → code comments in the diff / the review thread on the pr / commit message
-  bodies
-- "the tests" → a specific suite / all new tests / the scaffolding you were going to drop
-  anyway
-- the target can't be resolved
-- the brief contradicts house style (e.g. asks you to keep a suite that fails the
-  earn-its-place table) — surface the conflict, let the author overrule it explicitly
-
-usual style: earn-its-place for suites, no defensive writing, no semantic
-chaining, models&maintainers are the audience. cite the rule and proceed. if you
-find yourself wanting to ask and no rule covers it, note the gap in your final
-report — that is a hole in this skill, and it is worth more than the answer.
+usual style: no defensive writing, no persuasive writing, no coinage, no
+aphorisms, no semantic chaining, models&maintainers are the audience. cite the
+rule and proceed. if you find yourself wanting to ask a question and no rule
+here covers it, ask and note the gap in your final report — that is a hole in
+this skill, and it is very valuable.
 
 every question opens with a plain-language tldr: what happened, why it matters,
-what is being decided — self-contained, no session context assumed. the
-operator merges many stacks across many sessions and arrives at your question
-cold; a question that presumes your context earns "i don't understand what's
-going on" and wastes the round trip.
+what is being decided — self-contained, no session context assumed. Another
+value you bring to the table is reducing the attention burden of any single
+initiative on the principal. This enables merging many stacks across many
+sessions. This means that your questions should be geared towards someone
+arriving at your question cold; a question that presumes shared context (you and
+principal) results in "i don't understand what's going on" kind of response from
+the principal and wastes the round trip.
 
 for changes, ground each option in a counterfactual before asking — sample one
-representative case and show before/after. options are worlds to pick between,
-not questions about preference:
+representative case and show before/after.
 
-    header: which comments
-    options:
-      - code comments in the diff — 12 of them, 9 restate the line below
-      - the review thread on pr#35
-      - commit message bodies
-
-    header: how far
-    options:
-      - drop restatements, keep the 3 that explain why
-        `// increment the counter` / `counter += 1`  →  `counter += 1`
-      - keep all, compress each to one line
-      - drop every comment the diff added
-
-for anything that survives past the questions: do the work in the worktree, then show the
-result — `git log` before/after, or the message diff — and confirm once, immediately
-before push. that is the single gate. one round trip, not a tree.
-
-when a mutation drops or rewrites reviewable artifacts (tests, comments,
-messages), the gate shows each candidate's full source in the question tool's
-previews — one conceptual group per question, one artifact per drop-option —
-because the owner judges from source, not from your summary. their verdict
-overrules the house table in either direction; record overrides with their
-reason.
+for when a mutation drops or rewrites reviewable artifacts (tests, comments,
+messages), the gate shows each in the question tool's previews.
 
 ## typical actions
 
-your tasks will involve actions such as:
-- rebasing because the main history was rewritten
-- determining whether to keep or discard commits with the assistance of
-  `${CLAUDE_SKILL_DIR}/scripts/classify_stack.py`. the classifier serves one
-  goal: a landed stack sized by responsibility, not by authored commit count.
-  per-commit bisect/revert isolation only pays when the change carries weight,
-  so a small-responsibility branch folds to a single protocol commit even when
-  authored and reviewed as a series. the rubric judges per-commit provenance
-  only — "the whole branch is one responsibility" is the merger's read, and
-  folding an inherited reviewed stack is an operator call: surface it at the
-  gate, don't assume it.
-- rewriting the commit stack: folding commits, editing out suites failing the
-  earn-its-place table (`harness:executable-expectations`), surgery on the commits
-  themselves, rewriting commit messages
-- extra mutation passes named in the brief
-- merging the pull request
-- commenting on the pull request
+your tasks might involve one or more actions such as:
+- rebasing the PR because the main history was rewritten.
+- determining whether to keep or discard commits with the assistance of the
+  commit stack classifier.
+- surgery on the commits themselves, rewriting commit messages, editing out
+  tests failing the earn-its-place table (`harness:executable-expectations`),
+- extra mutation passes as requested in the brief.
+- merging the pull request.
+- commenting on the pull request.
 
-## verification
+## toolkit
+
+- commit stack classifier: `${CLAUDE_SKILL_DIR}/scripts/classify_stack.py`: the
+  classifier's goal: the landed stack is sized by responsibility, not by
+  authored commit count. a small-responsibility branch might fold into a single
+  protocol commit even when authored and reviewed as a series. the rubric judges
+  per-commit provenance only — if your read conflicts with the classifier
+  "the whole branch is one responsibility", consult the principal at the gate.
+
+## assurance
 
 before push, prove the surgery did only what was claimed:
-
 - message-only rewrite → `git rev-parse HEAD^{tree}` matches the pre-rewrite tree exactly.
-  if it doesn't, you dropped or moved code, escalate don't investigate.
 - comment-only surgery → the diff touches only comment lines, and the suite is green.
-- dropped a suite → name it and the earn-its-place clause it failed, in the record.
-- always → rerun `classify_stack.py`, then read the resulting log top to bottom as a
-  maintainer with no context. if the story doesn't land, fold again.
+- dropped tests → name it and the earn-its-place clause it failed, in the record.
+- always → rerun `classify_stack.py`, then read the resulting log top to bottom
+  as a maintainer with no context use your best judgement, e.g. if the story
+  told isn't coherent, fold again.
 
-for every pull request you merge:
-1. verbatim quote the user request;
-2. tersely compile all the questions you had to ask and my answers to them;
-3. and post it as a comment on the pull request to document what you were asked for observability.
+- for every pull request you merge:
+  1. verbatim quote the user request;
+  2. tersely compile all the questions you had to ask and my answers to them;
+  3. and post it as a comment on the pull request to document what you were asked for observability.
 
-## keep in mind
+## constraints
 
-- you are not concerned with the already merged commits.
-- you might need to eliminate unnecessary defensive writing or semantic chaining
-  from the commits to make them easier to comprehend and consume less tokens
-  (because models are the audience of those commit messages as well as the
-  maintainers).
-- you need a worktree to isolate everything you're doing from the repository.
+- you must use a worktree to isolate everything you're doing from the repository (including clean-up once you are done).
+- you must sanitize the commit messages by eliminating defensive writing, persuasive writing, semantic chaining to make them easier to comprehend and process.
