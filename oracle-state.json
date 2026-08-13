@@ -47,5 +47,12 @@
     "since": "2026-08-06",
     "subject": "the reviewer subagent's initial reasoning allocation: >=16,000 reasoning tokens before its first tool call",
     "mechanism": "the run's first generation in the session trace: the observability proxy labels a zero-reasoning turn 'response (NO REASONING)' (WARNING) and records per-turn output tokens; equivalently, thinking-before-first-tool extracted from the subagent transcript JSONL; checked on demand, not hook-enforced"
+  },
+  "ORC-10": {
+    "oracle-class": "experimental",
+    "ground-truth": "derived",
+    "since": "2026-08-13",
+    "subject": "the stripped-sdk-runner kit's transport claims: authored requests keep claude -p's per-model-family wire shape minus the <system-reminder> contamination, the cache and structured-output options track the CLI's feature-dependent wire, and wire_capture relays byte-for-byte untouched",
+    "mechanism": "plugins/harness/skills/skill-creator/stripped-sdk-runner/integration_test.py, live, self-contained, fixture-free, run once per model family (INTEGRATION_MODEL): mints a fresh claude -p capture through two chained wire_capture instances as the shape reference, runs three authored rollouts (cache-on CC shape, default, structured output) through the same chain, and asserts relay byte-fidelity (inner vs outer sha256), shape parity of the cache-on wire via its shape_diff (only caller texts, the deliberately absent reminder, session ids, lengths, and the billing hash suffix may differ), the option contracts (default wire free of cache_control and feature betas; output_format wire carrying the schema, its beta, and a conforming JSON reply), clean-wire assertions on every authored capture, the reasoning invariant (substantial billed thinking must arrive as a streamed summary \u2014 the authored thinking.display=summarized unmask is the one deliberate wire addition, since the CLI omits the field and the server then suppresses the billed summary), and the tripwire \u2014 the -p reference smuggles a reminder, no authored wire does; on drift it prints the fresh wire values to re-freeze bare_runner's per-family WIRE profiles from"
   }
 }
