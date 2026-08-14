@@ -12,10 +12,15 @@ One run proves four things:
     CHAINED wire_capture instances (the proxy forwards untouched);
  2. shape parity — a cache-on authored request differs from the -p
     reference only in the enumerated caller/per-call fields, plus the
-    deliberately absent <system-reminder>;
+    deliberately absent <system-reminder> and SDK identity line;
  3. the options — the default wire carries no cache_control and no
     cache/structured betas; an output_format rollout carries the
-    schema plus its beta and returns conforming JSON;
+    schema plus its beta and returns conforming JSON; a tools rollout
+    carries tools + forced tool_choice and returns the parsed call;
+    a tool-loop leg then replays that call's transcript over the
+    STREAMING transport and holds its tool_use/tool_result vocabulary
+    and header shape to a fresh -p run that executed a real Read call
+    (Accept-Encoding identity being the declared exception);
  4. the tripwire — the -p reference smuggles a <system-reminder> into
     the user turn (the contamination this kit exists to remove) and
     no authored wire ever does.
@@ -54,6 +59,20 @@ SYS_J = ("You are WIRE-PROBE-JSON, a terse verification responder. When "
          "the user gives you a probe code, reply with a JSON object whose "
          "'reply' field is exactly: WIRE-OK <code>. Nothing else.")
 USER_J = "Probe code JULIET-ORRERY-7733. Reply exactly as specified."
+SYS_T = ("You are WIRE-PROBE-TOOL, a terse verification responder. When "
+         "the user gives you a probe code, call the echo_probe tool with "
+         "`code` set to exactly that code. Never answer in plain text.")
+USER_T = "Probe code SIERRA-ASTROLABE-6624."
+TL_SYS = ("You are TOOL-LOOP-REF, a tool-exercise responder. Use the Read "
+          "tool to read exactly the file the user names, then reply with "
+          "exactly: LOOP-OK and nothing else.")
+ECHO_TOOL = {"name": "echo_probe",
+             "description": "Echo the user's probe code back in `code`.",
+             "input_schema": {"type": "object",
+                              "properties": {"code": {"type": "string"}},
+                              "required": ["code"],
+                              "additionalProperties": False}}
+FORCE_ECHO = {"type": "tool", "name": "echo_probe"}
 FORMAT_J = {"type": "json_schema",
             "schema": {"type": "object",
                        "properties": {"reply": {"type": "string"}},
@@ -116,30 +135,30 @@ def shape_diff(authored_path, reference_path):
         drift.append("body key order: reference %s vs authored %s"
                      % (list(g.keys()), list(a.keys())))
     gs, as_ = g.get("system") or [], a.get("system") or []
-    if len(gs) != len(as_):
-        drift.append("system block count %d vs %d" % (len(gs), len(as_)))
+    if len(as_) != 2 or len(gs) < 2:
+        drift.append("system block count: reference %d vs authored %d "
+                     "(authored must be billing + caller)"
+                     % (len(gs), len(as_)))
     else:
-        for i, (gb, ab) in enumerate(zip(gs, as_)):
-            if i == 0:
-                gbase = _BILLING_RE.match(gb.get("text") or "")
-                abase = _BILLING_RE.match(ab.get("text") or "")
-                if (not gbase or not abase
-                        or gbase.groups() != abase.groups()):
-                    drift.append("billing block: reference %r vs authored %r"
-                                 % (gb.get("text"), ab.get("text")))
-                elif gb.get("text") != ab.get("text"):
-                    expected.append("billing hash suffix")
-            elif i == len(gs) - 1:
-                gshape = {k: v for k, v in gb.items() if k != "text"}
-                ashape = {k: v for k, v in ab.items() if k != "text"}
-                if gshape != ashape:
-                    drift.append("caller system block shape: %s vs %s"
-                                 % (gshape, ashape))
-                if gb.get("text") != ab.get("text"):
-                    expected.append("caller system prompt text")
-            elif gb != ab:
-                drift.append("system[%d]: reference %r vs authored %r"
-                             % (i, str(gb)[:80], str(ab)[:80]))
+        gbase = _BILLING_RE.match(gs[0].get("text") or "")
+        abase = _BILLING_RE.match(as_[0].get("text") or "")
+        if not gbase or not abase or gbase.groups() != abase.groups():
+            drift.append("billing block: reference %r vs authored %r"
+                         % (gs[0].get("text"), as_[0].get("text")))
+        elif gs[0].get("text") != as_[0].get("text"):
+            expected.append("billing hash suffix")
+        gshape = {k: v for k, v in gs[-1].items() if k != "text"}
+        ashape = {k: v for k, v in as_[-1].items() if k != "text"}
+        if gshape != ashape:
+            drift.append("caller system block shape: %s vs %s"
+                         % (gshape, ashape))
+        if gs[-1].get("text") != as_[-1].get("text"):
+            expected.append("caller system prompt text")
+        if gs[1:-1]:
+            # whatever the CLI slips between billing and the caller's
+            # prompt (the SDK identity line) is steering text — its
+            # absence from the authored wire is the kit's contract
+            expected.append("identity line absent (deliberate)")
     gm = (g.get("messages") or [{}])[0].get("content") or []
     am = (a.get("messages") or [{}])[0].get("content") or []
     g_rem = [b for b in gm if "<system-reminder>" in (b.get("text") or "")]
@@ -207,8 +226,8 @@ def clean_wire(path, sys_text, user_text):
     reasons = []
     sys_texts = [b.get("text") for b in body.get("system") or []
                  if isinstance(b, dict)]
-    if sys_texts != [bare_runner.BILLING, bare_runner.IDENTITY, sys_text]:
-        reasons.append("system blocks not [billing, identity, ours]")
+    if sys_texts != [bare_runner.BILLING, sys_text]:
+        reasons.append("system blocks not [billing, ours]")
     user_texts = [b.get("text")
                   for m in body.get("messages") or []
                   if m.get("role") == "user"
@@ -258,6 +277,47 @@ def mint_reference(work):
         input=REF_USER, text=True, capture_output=True, timeout=300,
         cwd=tempfile.mkdtemp(prefix="ref-cwd-", dir=work), env=env)
     return proc.returncode
+
+
+def mint_toolloop(work):
+    """One `claude -p` run that EXECUTES a Read call: its follow-up
+    request carries the CLI's own assistant tool_use echo + tool_result
+    turn — the multi-turn vocabulary reference."""
+    tl_cwd = tempfile.mkdtemp(prefix="toolloop-cwd-", dir=work)
+    probe = os.path.join(tl_cwd, "toolloop_probe.txt")
+    with open(probe, "w") as f:
+        f.write("TOOLLOOP-PAYLOAD-9147")
+    tl_sys = os.path.join(work, "toolloop_system.txt")
+    with open(tl_sys, "w") as f:
+        f.write(TL_SYS)
+    env = dict(os.environ)
+    env["ANTHROPIC_BASE_URL"] = "http://127.0.0.1:%d" % PORT_OUTER
+    proc = subprocess.run(
+        ["claude", "--print", "--model", MODEL, "--effort", "high",
+         "--system-prompt-file", tl_sys, "--tools", "Read",
+         "--allowed-tools", "Read", "--strict-mcp-config",
+         "--no-session-persistence"],
+        input="Read the file %s and finish." % probe, text=True,
+        capture_output=True, timeout=300, cwd=tl_cwd, env=env)
+    return proc.returncode
+
+
+def find_toolloop(paths):
+    """Newest capture that carries a tool_result turn for MODEL."""
+    best = None
+    for p in paths:
+        try:
+            body = json.load(open(p))
+        except (ValueError, OSError):
+            continue
+        if body.get("model") != MODEL:
+            continue
+        if any(isinstance(bl, dict) and bl.get("type") == "tool_result"
+               for m in body.get("messages") or []
+               for bl in (m.get("content")
+                          if isinstance(m.get("content"), list) else [])):
+            best = p
+    return best
 
 
 def find_reference(paths):
@@ -395,6 +455,110 @@ def main():
                   isinstance(reply, dict)
                   and "JULIET-ORRERY-7733" in reply.get("reply", ""),
                   repr((rj["text"] or "")[:80]))
+
+        # tools leg: tools + forced tool_choice ride the same wire and
+        # the call comes back parsed. thinking=False because the API
+        # rejects forced tool_choice under 4.5's enabled-thinking shape.
+        sysfile_t = os.path.join(work, "probe_system_tool.txt")
+        with open(sysfile_t, "w") as f:
+            f.write(SYS_T)
+        s_o = snapshot(cap_outer)
+        rt = bare_runner.rollout(sysfile_t, USER_T, model=MODEL,
+                                 effort="high", timeout=300, thinking=False,
+                                 tools=[ECHO_TOOL], tool_choice=FORCE_ECHO)
+        n_t = new_since(s_o, cap_outer)
+        check("tools: forced call parsed",
+              rt["status"] == 200 and rt["stop_reason"] == "tool_use"
+              and rt["tool_calls"]
+              and rt["tool_calls"][0]["name"] == "echo_probe"
+              and "SIERRA-ASTROLABE-6624"
+              in (rt["tool_calls"][0]["input"].get("code") or ""),
+              "stop=%s calls=%r" % (rt["stop_reason"],
+                                    rt["tool_calls"][:1]))
+        if n_t:
+            body_t = json.load(open(n_t[0]))
+            check("tools: tools + tool_choice on a clean wire",
+                  body_t.get("tools") == [ECHO_TOOL]
+                  and body_t.get("tool_choice") == FORCE_ECHO
+                  and body_t.get("thinking") == {"type": "disabled"}
+                  and "context_management" not in body_t
+                  and b"<system-reminder>" not in open(n_t[0], "rb").read())
+
+        # tool-loop leg: the multi-turn tool transcript and the
+        # streaming transport, held to a fresh -p tool exchange —
+        # the two surfaces (stream_round's wire, round-2 transcript
+        # vocabulary) the buffered legs never touch.
+        s_o = snapshot(cap_outer)
+        tl_exit = mint_toolloop(work)
+        tl_ref = find_toolloop(new_since(s_o, cap_outer))
+        check("toolloop: -p tool exchange minted",
+              tl_exit == 0 and bool(tl_ref), "exit=%s" % tl_exit)
+        if tl_ref and rt["tool_calls"]:
+            ref_body = json.load(open(tl_ref))
+            ref_tu = [bl for m in ref_body["messages"]
+                      if m["role"] == "assistant"
+                      for bl in m["content"]
+                      if isinstance(bl, dict)
+                      and bl.get("type") == "tool_use"][-1]
+            ref_tr = [bl for m in ref_body["messages"]
+                      for bl in (m["content"]
+                                 if isinstance(m["content"], list) else [])
+                      if isinstance(bl, dict)
+                      and bl.get("type") == "tool_result"][-1]
+
+            call = rt["tool_calls"][0]
+            messages = [
+                {"role": "user",
+                 "content": [{"type": "text", "text": USER_T}]},
+                {"role": "assistant", "content": [call]},
+                {"role": "user", "content": [
+                    {"type": "tool_result", "tool_use_id": call["id"],
+                     "content": "Acknowledged."}]},
+            ]
+            # forced continuation — the think tool's round-2 shape exactly
+            body_l, _ = bare_runner.build_body(
+                SYS_T, None, MODEL, "high", thinking=False,
+                tools=[ECHO_TOOL], tool_choice=FORCE_ECHO,
+                messages=messages, session_id=rt["session_id"])
+            s_o = snapshot(cap_outer)
+            rl = bare_runner.stream_round(body_l, timeout=300)
+            n_l = new_since(s_o, cap_outer)
+            check("toolloop: streamed forced call arrives",
+                  rl["status"] == 200 and rl["stop_reason"] == "tool_use"
+                  and [c["name"] for c in rl["tool_calls"]]
+                  == ["echo_probe"],
+                  "stop=%s calls=%r" % (rl["stop_reason"],
+                                        rl["tool_calls"][:1]))
+            check("toolloop: transcript keeps -p vocabulary",
+                  sorted(call.keys()) == sorted(ref_tu.keys())
+                  and isinstance(ref_tr["content"], str)
+                  and set(ref_tr) - {"cache_control", "is_error"}
+                  == {"type", "tool_use_id", "content"},
+                  "ref tool_use %s, ref tool_result %s"
+                  % (sorted(ref_tu.keys()), sorted(ref_tr.keys())))
+            if n_l:
+                lh, gh = headers_of(n_l[0]), headers_of(tl_ref)
+                bad = []
+                if list(lh.keys()) != list(gh.keys()):
+                    bad.append("header sequence differs")
+                for k in gh:
+                    if k not in lh or gh[k] == lh[k]:
+                        continue
+                    lk = k.lower()
+                    if lk in ("x-claude-code-session-id",
+                              "content-length", "authorization"):
+                        continue
+                    if lk == "accept-encoding" and lh[k] == "identity":
+                        continue  # the declared streaming exception
+                    if lk == "anthropic-beta" and not (
+                            set(lh[k].split(",")) - set(gh[k].split(","))
+                    ) and (set(gh[k].split(",")) - set(lh[k].split(","))
+                           <= {bare_runner.CACHE_BETA}):
+                        continue  # -p caches; authored default doesn't
+                    bad.append("header %s: %r vs %r"
+                               % (k, gh[k][:40], lh[k][:40]))
+                check("toolloop: stream wire keeps -p header shape",
+                      not bad, "; ".join(bad)[:200])
     finally:
         outer.terminate()
         inner.terminate()

@@ -7,10 +7,15 @@ disqualifying flaw for scored rollouts — it injects a
 relevant" context) into the USER TURN, and the model treats it as
 task-relevant signal. That contamination, not the transport, is the
 reason this runner submits directly. Everything else about the CLI's
-wire is kept — billing-header block, SDK identity line, headers in
-CLI order and casing — because those identify how subscription
-traffic is billed, categorized, and served. The user turn carries the
-caller's text and NOTHING else.
+wire is kept — billing-header block, headers in CLI order and casing
+— because those identify how subscription traffic is billed,
+categorized, and served. Two deliberate exceptions: the CLI's SDK
+identity line ("You are a Claude agent…") is absent, because it is
+steering text and nothing but the caller's words may steer a scored
+rollout; and live streaming (stream_round) sends Accept-Encoding
+identity, because line-at-a-time reads cannot pass through stdlib
+gzip. The system carries billing + the caller's text, the user turn
+the caller's text, and NOTHING else.
 
 The WIRE profiles below are frozen from captured `claude -p` requests
 (CLI 2.1.220), one per model family — the families genuinely differ
@@ -23,12 +28,20 @@ CLI's. integration_test.py guards all of it against a freshly minted
 -p capture; when the CLI updates and the test reports drift,
 re-freeze from the values it prints.
 
-Options, both OFF by default:
+Options, all OFF by default:
 - cache=True: the CLI's prompt-caching shape (ephemeral 1h
-  cache_control on identity + caller blocks, extended-cache-ttl beta).
+  cache_control on the caller block, extended-cache-ttl beta).
 - output_format={json schema}: structured outputs (output_config
   {"format": ...} plus the structured-outputs beta); the reply text
   is the conforming JSON.
+- tools=[...] / tool_choice={...}: on the wire verbatim, adjacent;
+  tool calls come back parsed in the result's tool_calls.
+- messages=[...] / session_id=...: a full transcript in place of the
+  single user turn, for multi-round tool loops under one session id.
+  Round bodies build with build_body(); stream_round(body, halt=...)
+  sends one live — halt sees each content_block_start and a truthy
+  return hangs up on the spot, which is how a wrong channel choice
+  (e.g. a native thinking block) is cut off for 2-5 tokens.
 
 Auth: ANTHROPIC_STRIPPED_SDK_RUNNER when set (a token of the runner's
 own), otherwise the subscription OAuth token from
@@ -64,14 +77,27 @@ TOKEN_ENV = "ANTHROPIC_STRIPPED_SDK_RUNNER"
 CREDENTIALS = os.path.expanduser("~/.claude/.credentials.json")
 CLAUDE_JSON = os.path.expanduser("~/.claude.json")
 
-QUOTA_WAIT_S = int(os.environ.get("BARE_RUNNER_QUOTA_WAIT_S", "300"))
-QUOTA_MAX_WAITS = int(os.environ.get("BARE_RUNNER_QUOTA_MAX_WAITS", "12"))
+def _quota_pause(status, attempts):
+    """The one home for transport-status policy: quota statuses pause
+    (bounded, env-tunable, read at call time) and return True so the
+    caller retries; 401 is fatal with the refresh hint; anything else
+    is the caller's result."""
+    if status in (429, 503, 529) and attempts <= int(
+        os.environ.get("BARE_RUNNER_QUOTA_MAX_WAITS", "12")
+    ):
+        time.sleep(int(os.environ.get("BARE_RUNNER_QUOTA_WAIT_S", "300")))
+        return True
+    if status == 401:
+        raise SystemExit(
+            "HTTP 401 from the API — OAuth token rejected; "
+            "run any claude command to refresh it, then retry"
+        )
+    return False
 
 # ---- WIRE profiles: frozen from captured claude -p requests (2.1.220).
 BILLING = (
     "x-anthropic-billing-header: cc_version=2.1.220.cf8; " "cc_entrypoint=sdk-cli;"
 )
-IDENTITY = "You are a Claude agent, built on Anthropic's Claude Agent SDK."
 CACHE_1H = {"type": "ephemeral", "ttl": "1h"}
 CONTEXT_MANAGEMENT = {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]}
 USER_AGENT = "claude-cli/2.1.220 (external, sdk-cli)"
@@ -178,11 +204,25 @@ def assert_env():
 
 
 def build_body(
-    system_text, user_text, model, effort, max_tokens, thinking, cache, output_format
+    system_text,
+    user_text,
+    model,
+    effort,
+    max_tokens=None,
+    thinking=None,
+    cache=False,
+    output_format=None,
+    tools=None,
+    tool_choice=None,
+    messages=None,
+    session_id=None,
 ):
     """(body, session_id): the CLI's request shape for the model's
     family — same key order, same floor blocks, same metadata sources —
-    with the user turn carrying ONLY the caller's text."""
+    with the user turn carrying ONLY the caller's text. `messages`
+    replaces the single user turn with a full transcript (user_text is
+    then unused); pass the returned session_id back in so a
+    conversation's rounds share one session."""
     fam = _family(model)
     if max_tokens is None:
         max_tokens = (
@@ -214,35 +254,38 @@ def build_body(
         output_config = dict(output_config or {})
         output_config["format"] = output_format
     device_id, account_uuid = account_identity()
-    sid = str(uuid.uuid4())
+    sid = session_id or str(uuid.uuid4())
     sys_blocks = [
         {"type": "text", "text": BILLING},
-        # {"type": "text", "text": IDENTITY},
         {"type": "text", "text": system_text},
     ]
     if cache:
-        sys_blocks[1]["cache_control"] = dict(CACHE_1H)
-        sys_blocks[2]["cache_control"] = dict(CACHE_1H)
+        sys_blocks[-1]["cache_control"] = dict(CACHE_1H)
     body = {
         "model": model,
-        "messages": [
-            {"role": "user", "content": [{"type": "text", "text": user_text}]}
-        ],
+        "messages": messages
+        or [{"role": "user", "content": [{"type": "text", "text": user_text}]}],
         "system": sys_blocks,
-        "tools": [],
-        "metadata": {
-            "user_id": json.dumps(
-                {
-                    "device_id": device_id,
-                    "account_uuid": account_uuid,
-                    "session_id": sid,
-                },
-                separators=(",", ":"),
-            )
-        },
-        "max_tokens": max_tokens,
-        "thinking": thinking,
+        "tools": list(tools or []),
     }
+    if tool_choice:
+        body["tool_choice"] = tool_choice
+    body.update(
+        {
+            "metadata": {
+                "user_id": json.dumps(
+                    {
+                        "device_id": device_id,
+                        "account_uuid": account_uuid,
+                        "session_id": sid,
+                    },
+                    separators=(",", ":"),
+                )
+            },
+            "max_tokens": max_tokens,
+            "thinking": thinking,
+        }
+    )
     if thinking.get("type") != "disabled":
         # The CLI's disabled-thinking calls omit context_management (the
         # clear_thinking strategy 400s without thinking) — observed on the
@@ -254,7 +297,7 @@ def build_body(
     return body, sid
 
 
-def _headers(betas, sid, attempt, body_len, netloc):
+def _headers(betas, sid, attempt, body_len, netloc, accept_encoding=None):
     """The CLI's header sequence — names, order, casing — with only the
     per-call values fresh."""
     return (
@@ -275,13 +318,14 @@ def _headers(betas, sid, attempt, body_len, netloc):
             ("x-app", "cli"),
             ("Connection", "keep-alive"),
             ("Host", netloc),
-            ("Accept-Encoding", "gzip, deflate, br, zstd"),
+            ("Accept-Encoding", accept_encoding or "gzip, deflate, br, zstd"),
             ("Content-Length", str(body_len)),
         ]
     )
 
 
-def _send(url, betas, body_bytes, sid, attempt, timeout):
+def _post(url, betas, body_bytes, sid, attempt, timeout, accept_encoding=None):
+    """(connection, response) for one POSTed body — caller closes."""
     u = urllib.parse.urlsplit(url)
     cls = (
         http.client.HTTPSConnection
@@ -289,17 +333,23 @@ def _send(url, betas, body_bytes, sid, attempt, timeout):
         else http.client.HTTPConnection
     )
     c = cls(u.netloc, timeout=timeout)
+    c.putrequest(
+        "POST",
+        (u.path.rstrip("/")) + "/v1/messages",
+        skip_host=True,
+        skip_accept_encoding=True,
+    )
+    for k, v in _headers(
+        betas, sid, attempt, len(body_bytes), u.netloc, accept_encoding
+    ):
+        c.putheader(k, v)
+    c.endheaders(body_bytes)
+    return c, c.getresponse()
+
+
+def _send(url, betas, body_bytes, sid, attempt, timeout):
+    c, r = _post(url, betas, body_bytes, sid, attempt, timeout)
     try:
-        c.putrequest(
-            "POST",
-            (u.path.rstrip("/")) + "/v1/messages",
-            skip_host=True,
-            skip_accept_encoding=True,
-        )
-        for k, v in _headers(betas, sid, attempt, len(body_bytes), u.netloc):
-            c.putheader(k, v)
-        c.endheaders(body_bytes)
-        r = c.getresponse()
         data = r.read()
         enc = (r.getheader("content-encoding") or "").lower()
         if enc == "gzip":
@@ -315,44 +365,16 @@ def _send(url, betas, body_bytes, sid, attempt, timeout):
         c.close()
 
 
-def _parse(status, data, streamed):
-    """(text, thinking, model, stop_reason, usage, error). Buffered SSE
-    parse: no live consumer here, and buffering sidesteps encoding
-    concerns. thinking is the reasoning-summary text the wire streamed."""
-    if status != 200 or not streamed:
-        try:
-            obj = json.loads(data)
-        except ValueError:
-            return (
-                None,
-                None,
-                None,
-                None,
-                None,
-                {"unparseable": data[:200].decode("utf-8", "replace")},
-            )
-        if obj.get("type") == "message":
-            text = "".join(
-                b.get("text", "")
-                for b in obj.get("content", [])
-                if isinstance(b, dict) and b.get("type") == "text"
-            )
-            think = "".join(
-                b.get("thinking", "")
-                for b in obj.get("content", [])
-                if isinstance(b, dict) and b.get("type") == "thinking"
-            )
-            return (
-                text or None,
-                think or None,
-                obj.get("model"),
-                obj.get("stop_reason"),
-                obj.get("usage"),
-                None,
-            )
-        return None, None, None, None, None, obj
-    text, think, model, stop, usage, err = "", "", None, None, {}, None
-    for line in data.splitlines():
+def _fold(lines, halt=None):
+    """Fold an SSE line stream into (blocks, model, stop, usage, error).
+    blocks are API-shaped content blocks — text / thinking / tool_use,
+    tool inputs parsed from their accumulated partial json, ready to
+    echo in an assistant turn (thinking blocks carry summary text only,
+    no signature: display, never echo). halt(content_block) is consulted
+    at each content_block_start; truthy stops reading right there with
+    stop "halted" — on a live source that is the cheap hang-up."""
+    blocks, parts, model, stop, usage, err = [], [], None, None, {}, None
+    for line in lines:
         if not line.startswith(b"data: "):
             continue
         try:
@@ -364,18 +386,120 @@ def _parse(status, data, streamed):
             mm = obj.get("message") or {}
             model = mm.get("model")
             usage.update(mm.get("usage") or {})
-        elif t == "content_block_delta":
+        elif t == "content_block_start":
+            cb = dict(obj.get("content_block") or {})
+            # signature (thinking) and caller (tool_use) are response
+            # decoration, not request vocabulary — echoing them rides
+            # on server tolerance, so they never reach the blocks.
+            cb.pop("signature", None)
+            cb.pop("caller", None)
+            if cb.get("type") == "tool_use":
+                cb["input"] = {}
+            blocks.append(cb)
+            parts.append("")
+            if halt and halt(cb):
+                stop = "halted"
+                break
+        elif t == "content_block_delta" and blocks:
             d = obj.get("delta") or {}
-            if d.get("type") == "text_delta":
-                text += d.get("text") or ""
-            elif d.get("type") == "thinking_delta":
-                think += d.get("thinking") or ""
+            dt = d.get("type")
+            if dt == "text_delta":
+                blocks[-1]["text"] = blocks[-1].get("text", "") + (
+                    d.get("text") or ""
+                )
+            elif dt == "thinking_delta":
+                blocks[-1]["thinking"] = blocks[-1].get("thinking", "") + (
+                    d.get("thinking") or ""
+                )
+            elif dt == "input_json_delta":
+                parts[-1] += d.get("partial_json") or ""
         elif t == "message_delta":
             usage.update(obj.get("usage") or {})
             stop = (obj.get("delta") or {}).get("stop_reason") or stop
         elif t == "error":
             err = obj
-    return (text or None), (think or None), model, stop, usage, err
+    for cb, part in zip(blocks, parts):
+        if cb.get("type") == "tool_use":
+            try:
+                cb["input"] = json.loads(part) if part else {}
+            except ValueError:
+                cb["input"] = {"partial_json": part}
+    return blocks, model, stop, usage, err
+
+
+def _digest(blocks):
+    """(text, thinking, tool_calls) — the joined conveniences."""
+    text = "".join(b.get("text") or "" for b in blocks if b.get("type") == "text")
+    think = "".join(
+        b.get("thinking") or "" for b in blocks if b.get("type") == "thinking"
+    )
+    calls = [b for b in blocks if b.get("type") == "tool_use"]
+    return text or None, think or None, calls
+
+
+def _parse(status, data):
+    """(blocks, model, stop, usage, error) from a buffered response."""
+    if status == 200:
+        return _fold(iter(data.splitlines()), None)
+    try:
+        obj = json.loads(data)
+    except ValueError:
+        obj = {"unparseable": data[:200].decode("utf-8", "replace")}
+    return [], None, None, {}, obj
+
+
+def _betas_for(body):
+    """The beta list a built body needs, derived from the body itself —
+    the cache and structured-output betas track their features exactly,
+    the way the CLI's list tracks its own."""
+    cache = any("cache_control" in b for b in body.get("system") or [])
+    structured = "format" in (body.get("output_config") or {})
+    return _betas(body["model"], cache, structured)
+
+
+def _result(status, attempts, sid, folded):
+    blocks, model, stop, usage, err = folded
+    text, think, calls = _digest(blocks)
+    return {
+        "text": text,
+        "thinking": think,
+        "tool_calls": calls,
+        "model": model,
+        "stop_reason": stop,
+        "usage": usage,
+        "status": status,
+        "attempts": attempts,
+        "session_id": sid,
+        "raw": err,
+    }
+
+
+def stream_round(body, halt=None, timeout=600):
+    """One live exchange for an already-built body (from build_body):
+    betas and session id derive from the body, the reply streams
+    line-at-a-time, and halt(content_block) is consulted at each
+    content_block_start — truthy hangs up on the spot (stop "halted").
+    A first-block hang-up costs 2-5 tokens: the probe / abort lever.
+    Returns the same result dict as rollout(). Quota pauses and
+    retries the same way."""
+    betas = _betas_for(body)
+    sid = json.loads(body["metadata"]["user_id"])["session_id"]
+    body_bytes = json.dumps(body, separators=(",", ":"), ensure_ascii=False).encode()
+    url = base_url()
+    attempts = 0
+    while True:
+        attempts += 1
+        c, r = _post(url, betas, body_bytes, sid, attempts, timeout, "identity")
+        try:
+            if _quota_pause(r.status, attempts):
+                continue
+            if r.status != 200:
+                folded = _parse(r.status, r.read())
+            else:
+                folded = _fold(iter(r.readline, b""), halt)
+            return _result(r.status, attempts, sid, folded)
+        finally:
+            c.close()
 
 
 def rollout(
@@ -387,13 +511,18 @@ def rollout(
     thinking=None,
     cache=False,
     output_format=None,
+    tools=None,
+    tool_choice=None,
     timeout=600,
 ):
-    """Returns {text, thinking, model, stop_reason, usage, status,
-    attempts, session_id, raw}; text is None on hard failure. thinking
-    is the streamed reasoning summary (None when the model did not
-    think or thinking is disabled). With output_format, text is the
-    schema-conforming JSON string."""
+    """Returns {text, thinking, tool_calls, model, stop_reason, usage,
+    status, attempts, session_id, raw}; text is None on hard failure.
+    thinking is the streamed reasoning summary (None when the model did
+    not think or thinking is disabled). tool_calls are API-shaped
+    tool_use blocks with parsed input, ready to echo in an assistant
+    turn. With output_format, text is the schema-conforming JSON
+    string. Buffered, CLI-exact wire; for a live stream with an early
+    hang-up lever, build the body and use stream_round."""
     if not os.path.exists(system_file):
         raise SystemExit("system prompt file missing: %s" % system_file)
     system_text = open(system_file, encoding="utf-8").read()
@@ -406,52 +535,47 @@ def rollout(
         thinking,
         cache,
         output_format,
+        tools=tools,
+        tool_choice=tool_choice,
     )
-    betas = _betas(model, cache, bool(output_format))
+    betas = _betas_for(body)
     body_bytes = json.dumps(body, separators=(",", ":"), ensure_ascii=False).encode()
     url = base_url()
     attempts = 0
     while True:
         attempts += 1
         status, data = _send(url, betas, body_bytes, sid, attempts, timeout)
-        if status in (429, 503, 529) and attempts <= QUOTA_MAX_WAITS:
-            time.sleep(QUOTA_WAIT_S)
-            continue
-        break
-    if status == 401:
-        raise SystemExit(
-            "HTTP 401 from the API — OAuth token rejected; "
-            "run any claude command to refresh it, then retry"
-        )
-    text, think, model_id, stop, usage, err = _parse(status, data, True)
-    return {
-        "text": text,
-        "thinking": think,
-        "model": model_id,
-        "stop_reason": stop,
-        "usage": usage,
-        "status": status,
-        "attempts": attempts,
-        "session_id": sid,
-        "raw": err,
-    }
+        if not _quota_pause(status, attempts):
+            break
+    return _result(status, attempts, sid, _parse(status, data))
+
+
+def _replied(r):
+    """A reply arrived: text or tool calls on a 200. The one home for
+    the concept — the CLI's exit test and the retry helper share it."""
+    return r["status"] == 200 and bool(r["text"] or r["tool_calls"])
 
 
 def rollout_with_retry(system_file, user_text, accept, **kw):
-    """`accept(text) -> bool` decides whether a reply satisfies your
-    contract. One retry on a rejected reply, then the best available is
-    returned (caller decides how to score/surface it — a broken contract
-    is a process signal, not noise). The extra count is wire attempts
-    beyond the first, for capture accounting when a proxy records."""
+    """`accept(text) -> bool` decides whether a TEXT reply satisfies
+    your contract; a tool-only reply is a reply with no text to judge
+    and returns as-is (write tool contracts against rollout directly).
+    One retry on a rejected or missing reply, then the best available
+    is returned (caller decides how to score/surface it — a broken
+    contract is a process signal, not noise). The extra count is wire
+    attempts beyond the first, for capture accounting when a proxy
+    records."""
+
+    def satisfied(r):
+        return _replied(r) and (accept(r["text"]) if r["text"] else True)
+
     r1 = rollout(system_file, user_text, **kw)
     extra = r1["attempts"] - 1
-    if r1["text"] and accept(r1["text"]):
+    if satisfied(r1):
         return r1, extra
     r2 = rollout(system_file, user_text, **kw)
     extra += r2["attempts"]
-    return (
-        r2 if r2["text"] and accept(r2["text"]) else (r2 if r2["text"] else r1)
-    ), extra
+    return (r2 if satisfied(r2) or _replied(r2) else r1), extra
 
 
 def _cli():
@@ -476,6 +600,24 @@ def _cli():
         help="structured output format, e.g. "
         '\'{"type":"json_schema","schema":{...}}\'',
     )
+    ap.add_argument(
+        "--tools",
+        metavar="JSON",
+        default=None,
+        help='tool definitions, e.g. \'[{"name":...,"input_schema":...}]\'',
+    )
+    ap.add_argument(
+        "--tool-choice",
+        metavar="JSON",
+        default=None,
+        help='e.g. \'{"type":"tool","name":"think"}\'',
+    )
+    ap.add_argument(
+        "--no-thinking",
+        action="store_true",
+        help="send the CLI's disabled-thinking shape (the 4.5 family "
+        "rejects forced tool_choice with thinking enabled)",
+    )
     ap.add_argument("--timeout", type=int, default=600)
     ap.add_argument(
         "user_text",
@@ -492,13 +634,16 @@ def _cli():
         model=a.model,
         effort=a.effort,
         max_tokens=a.max_tokens,
+        thinking=False if a.no_thinking else None,
         cache=a.cache,
         output_format=fmt,
+        tools=json.loads(a.tools) if a.tools else None,
+        tool_choice=json.loads(a.tool_choice) if a.tool_choice else None,
         timeout=a.timeout,
     )
     json.dump(r, sys.stdout, indent=1)
     sys.stdout.write("\n")
-    sys.exit(0 if r["text"] and r["status"] == 200 else 1)
+    sys.exit(0 if _replied(r) else 1)
 
 
 if __name__ == "__main__":
