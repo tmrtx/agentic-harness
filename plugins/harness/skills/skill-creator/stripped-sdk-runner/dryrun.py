@@ -9,11 +9,11 @@ produce BEFORE any side effect exists: think.py's forced round 1
 runs with the target environment's FULL tool roster declared
 alongside, so the model reasons inside a tooled environment and the
 reasoning arrives as the think calls' input — and no working round
-is ever sent. The default roster is the real thing:
-roster-claude-code.json, Claude Code's own tool declarations
-captured verbatim from the wire (see default_roster); a synthetic
-or trimmed roster defeats the X-ray, because the model plans with
-the tools it sees. A non-think call the model smuggles into the forced
+is ever sent. The default roster is the real thing: Claude Code's
+own tool declarations captured verbatim from the wire, in a file
+whose name carries the CLI version and capture date (see
+default_roster / ROSTER_FILE); a synthetic or trimmed roster
+defeats the X-ray, because the model plans with the tools it sees. A non-think call the model smuggles into the forced
 round is first-action signal too: recorded (cochannel_calls), never
 executed — nothing here can execute one.
 
@@ -51,19 +51,26 @@ import bare_runner  # noqa: E402
 import think  # noqa: E402
 
 ROSTER_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           "roster-claude-code.json")
+                           "roster-claude-code-2.1.233-20260815.json")
 
 
 def default_roster():
     """Claude Code's own tool roster, captured verbatim from the wire:
-    the tools array of the /v1/messages request the bundled CLI
-    (claude-cli 2.1.233, @anthropic-ai/claude-agent-sdk 0.3.233,
-    2026-08-15) sends for a default query() — recorded by
-    wire_capture.py in a pristine container in front of a 401 stub,
-    so nothing reached the API. 20 tools; MCP servers and per-repo
-    skills are not in a default capture — pass `tools` for a
-    customized target. Re-freeze by re-running that rig against a
-    newer SDK and replacing roster-claude-code.json."""
+    the tools array of the /v1/messages request a direct
+    `claude -p "Say hi." --model claude-opus-5` sends (claude-cli
+    2.1.233, 2026-08-15; pristine container, wire_capture.py in
+    front of a 401 stub, nothing reached the API). The file name
+    carries the CLI version and capture date. Cross-checked against
+    an Agent SDK 0.3.233 capture of the same CLI version: all 20
+    schemas and 18/20 descriptions byte-identical; the CLI itself
+    varies the other two per mode — Agent's delegation guidance and
+    the model display name inside Bash's commit-trailer line — so
+    tool descriptions are also model- and version-dependent (pick
+    the model you dry-run for; opus-5 here). MCP servers, per-repo
+    skills, and interactive-only tools are never in a -p capture —
+    pass `tools` for a customized target. Re-freeze by re-running
+    the rig against a newer CLI, dropping in a new dated
+    roster-claude-code-* file, and pointing ROSTER_FILE at it."""
     return json.load(open(ROSTER_FILE, encoding="utf-8"))
 
 
@@ -191,7 +198,7 @@ def _cli():
         default=None,
         help="JSON list of the target environment's tool definitions, "
         "declared verbatim alongside think; omitted = the shipped "
-        "Claude Code roster (roster-claude-code.json)",
+        "Claude Code roster (the dated roster-claude-code-* capture)",
     )
     ap.add_argument("--model", default=bare_runner.DEFAULT_MODEL)
     ap.add_argument("--effort", default=bare_runner.DEFAULT_EFFORT)

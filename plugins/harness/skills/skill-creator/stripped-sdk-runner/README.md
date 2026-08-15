@@ -105,16 +105,31 @@ and nothing else.
   think calls' input — and never sends a working round (probe off:
   exactly one request reaches the wire). Calls smuggled into the
   forced round are recorded (`cochannel_calls`), never executed.
-- The default roster is the real thing: `roster-claude-code.json`,
-  the 20-tool declaration Claude Code itself puts on the wire,
-  captured verbatim from a default Agent SDK `query()`
-  (claude-cli 2.1.233 / agent-sdk 0.3.233, 2026-08-15; pristine
-  container, wire_capture.py in front of a 401 stub — the request
-  was recorded, nothing reached the API, all 11 retry bodies
-  byte-identical). `tools=None` declares it; `tools=[]` dry-runs
-  bare; pass your own list for a customized target — MCP servers
-  and per-repo skills are never in a default capture. Re-freeze by
-  re-running that rig against a newer SDK and replacing the file.
+- The default roster is the real thing:
+  `roster-claude-code-2.1.233-20260815.json` (name = CLI version +
+  capture date), the 20-tool declaration a direct
+  `claude -p --model claude-opus-5` puts on the wire, captured
+  verbatim (pristine container, wire_capture.py in front of a 401
+  stub — the request was recorded, nothing reached the API, all 11
+  retry bodies byte-identical). Cross-checked against an Agent SDK
+  0.3.233 capture of the same CLI: all 20 schemas and 18/20
+  descriptions byte-identical, the other two varied by the CLI
+  itself per mode (Agent's delegation guidance; the model display
+  name in Bash's commit-trailer line) — descriptions are also
+  model- and version-dependent, so capture for the model you
+  dry-run. `tools=None` declares it; `tools=[]` dry-runs bare;
+  pass your own list for a customized target — MCP servers,
+  per-repo skills, and interactive-only tools are never in a -p
+  capture. Re-freeze by re-running the rig against a newer CLI and
+  pointing dryrun.ROSTER_FILE at the new dated file.
+- `roster-replicated-env-20260814.json` is the alternative roster
+  the 2026-08-14 experiments actually ran with: the 9-tool
+  replicated executor environment (bash, read_file, write_file,
+  edit_file, glob, grep, spawn_agent, publish_artifact,
+  message_principal), byte-identical to the bench's frozen env v1.0
+  `tools.json`. Genre-faithful, not byte-faithful to Claude Code
+  (its FIDELITY notes, deviation 2) — use it to reproduce or extend
+  those experiments; use the capture for real-executor dry runs.
   Returns `{verdict, thoughts, cochannel_calls, first_action,
   probe_thoughts, native_thinking_tokens, output_tokens,
   session_id, rounds}`; verdict "ok" iff round 1 delivered the

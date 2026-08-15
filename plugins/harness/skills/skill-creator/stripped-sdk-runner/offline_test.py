@@ -538,11 +538,14 @@ def main():
 
     # -- dryrun default roster: the shipped Claude Code capture ---------
     shipped = dryrun.default_roster()
-    check("roster file: wire-shape tool entries, no think collision",
-          isinstance(shipped, list) and shipped
-          and all(sorted(t) == ["description", "input_schema", "name"]
-                  for t in shipped)
-          and think.THINK["name"] not in [t["name"] for t in shipped])
+    replica = json.load(open(os.path.join(
+        KIT, "roster-replicated-env-20260814.json"), encoding="utf-8"))
+    check("roster files: wire-shape tool entries, no think collision",
+          all(isinstance(r, list) and r
+              and all(sorted(t) == ["description", "input_schema", "name"]
+                      for t in r)
+              and think.THINK["name"] not in [t["name"] for t in r]
+              for r in (shipped, replica)))
     fresh()
     CANNED.append((200, tool_reply("think", ['{"thoughts": "real"}'])))
     res = dryrun.dry_run(SYS, USER, probe=False)

@@ -1,0 +1,117 @@
+[
+  {
+    "name": "bash",
+    "description": "Execute a bash command on the workstation and return its output. Use absolute paths; working directory does not persist between calls. Set run_in_background for long-running commands.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "command": {"type": "string", "description": "The command to execute"},
+        "timeout_ms": {"type": "number", "description": "Optional timeout in milliseconds (default 120000)"},
+        "run_in_background": {"type": "boolean", "description": "Run detached; poll output later"}
+      },
+      "required": ["command"]
+    }
+  },
+  {
+    "name": "read_file",
+    "description": "Read a file (text, image, or PDF) from the filesystem. Returns numbered lines. Use offset/limit for large files.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "path": {"type": "string", "description": "Absolute path to the file"},
+        "offset": {"type": "number", "description": "1-based line to start from"},
+        "limit": {"type": "number", "description": "Max lines to read"}
+      },
+      "required": ["path"]
+    }
+  },
+  {
+    "name": "write_file",
+    "description": "Create or overwrite a file with the given content.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "path": {"type": "string", "description": "Absolute path to the file"},
+        "content": {"type": "string", "description": "Full file content"}
+      },
+      "required": ["path", "content"]
+    }
+  },
+  {
+    "name": "edit_file",
+    "description": "Exact string replacement in an existing file. old_string must match uniquely; set replace_all to replace every occurrence.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "path": {"type": "string", "description": "Absolute path to the file"},
+        "old_string": {"type": "string"},
+        "new_string": {"type": "string"},
+        "replace_all": {"type": "boolean"}
+      },
+      "required": ["path", "old_string", "new_string"]
+    }
+  },
+  {
+    "name": "glob",
+    "description": "Find files by glob pattern (e.g. **/*.org), sorted by modification time.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "pattern": {"type": "string"},
+        "path": {"type": "string", "description": "Directory to search from (default: working directory)"}
+      },
+      "required": ["pattern"]
+    }
+  },
+  {
+    "name": "grep",
+    "description": "Search file contents with a regex (ripgrep). Returns matching lines with file and line number.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "pattern": {"type": "string", "description": "Regex to search for"},
+        "path": {"type": "string", "description": "File or directory to search (default: working directory)"},
+        "glob_filter": {"type": "string", "description": "Restrict to files matching this glob"},
+        "context_lines": {"type": "number", "description": "Lines of context around each match"}
+      },
+      "required": ["pattern"]
+    }
+  },
+  {
+    "name": "spawn_agent",
+    "description": "Launch a subagent with its own context to handle a delegated task; returns the subagent's final report. Subagent sessions are traced to Langfuse like any other session on this machine.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "task": {"type": "string", "description": "Full task prompt for the subagent"},
+        "model": {"type": "string", "description": "Model to run it on: opus | sonnet | fable | haiku (default opus)"},
+        "effort": {"type": "string", "description": "Reasoning effort: low | medium | high | xhigh | max"},
+        "run_in_background": {"type": "boolean", "description": "Do not block on the result; a completion notification arrives later"}
+      },
+      "required": ["task"]
+    }
+  },
+  {
+    "name": "publish_artifact",
+    "description": "Render a self-contained HTML file to a private web page the principal can open from any device. Re-publishing the same path updates the same URL.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "path": {"type": "string", "description": "Absolute path to the HTML file"},
+        "title": {"type": "string", "description": "Page title shown to the principal"}
+      },
+      "required": ["path"]
+    }
+  },
+  {
+    "name": "message_principal",
+    "description": "Send a short message to the principal's phone. He may be away or asleep; use for genuine blockers or decisions only he can make, otherwise keep working and report at the end.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "message": {"type": "string", "description": "The message text"}
+      },
+      "required": ["message"]
+    }
+  }
+]
