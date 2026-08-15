@@ -105,31 +105,41 @@ and nothing else.
   think calls' input — and never sends a working round (probe off:
   exactly one request reaches the wire). Calls smuggled into the
   forced round are recorded (`cochannel_calls`), never executed.
-- The default roster is the real thing:
-  `roster-claude-code-2.1.233-20260815.json` (name = CLI version +
-  capture date), the 20-tool declaration a direct
-  `claude -p --model claude-opus-5` puts on the wire, captured
-  verbatim (pristine container, wire_capture.py in front of a 401
-  stub — the request was recorded, nothing reached the API, all 11
-  retry bodies byte-identical). Cross-checked against an Agent SDK
-  0.3.233 capture of the same CLI: all 20 schemas and 18/20
-  descriptions byte-identical, the other two varied by the CLI
-  itself per mode (Agent's delegation guidance; the model display
-  name in Bash's commit-trailer line) — descriptions are also
-  model- and version-dependent, so capture for the model you
-  dry-run. `tools=None` declares it; `tools=[]` dry-runs bare;
-  pass your own list for a customized target — MCP servers,
-  per-repo skills, and interactive-only tools are never in a -p
-  capture. Re-freeze by re-running the rig against a newer CLI and
-  pointing dryrun.ROSTER_FILE at the new dated file.
-- `roster-replicated-env-20260814.json` is the alternative roster
-  the 2026-08-14 experiments actually ran with: the 9-tool
+- The default environment is the real thing:
+  `envs/claude-code-2.1.233-20260815/` (directory name = CLI
+  version + capture date) holds the system prompt and the 23-tool
+  roster an INTERACTIVE `claude --model claude-opus-5` session put
+  on the wire, captured verbatim (pristine container,
+  wire_capture.py in front of a 401 stub — the request was
+  recorded, nothing reached the API, all retry bodies
+  byte-identical). Interactive is the deliberate mode: it carries
+  the tools headless modes drop (AskUserQuestion, plan mode).
+  `system.txt` is the capture's system blocks after the CLI's
+  leading billing block, joined with a blank line — the container's
+  environment block (cwd /work) rides along; edit a copy if your
+  dry run needs a different world. Not in a pristine capture, by
+  construction: MCP servers, per-repo skills, and
+  remote-gate-served tools (TaskCreate-family, Monitor, ...) —
+  wire_capture a live session and pass `--tools-file` /
+  `--system-prompt-file` to dry-run such a target. Tool
+  descriptions are model-, version-, mode-, and
+  session-config-dependent (an SDK and a -p capture of the same
+  CLI differed only in CLI-generated text: Agent's delegation
+  guidance; the model display name in Bash's commit-trailer line)
+  — capture for the model you dry-run. `tools=None` declares the
+  shipped roster; `tools=[]` dry-runs bare. Re-freeze into a new
+  dated `envs/claude-code-*/` directory and point dryrun.ENV_DIR
+  at it.
+- `envs/replicated-env-20260814/tools.json` is the alternative
+  roster the 2026-08-14 experiments actually ran with: the 9-tool
   replicated executor environment (bash, read_file, write_file,
   edit_file, glob, grep, spawn_agent, publish_artifact,
   message_principal), byte-identical to the bench's frozen env v1.0
   `tools.json`. Genre-faithful, not byte-faithful to Claude Code
   (its FIDELITY notes, deviation 2) — use it to reproduce or extend
   those experiments; use the capture for real-executor dry runs.
+  Its paired system prompt describes the principal's workstation
+  and deliberately stays in the bench, outside this public repo.
   Returns `{verdict, thoughts, cochannel_calls, first_action,
   probe_thoughts, native_thinking_tokens, output_tokens,
   session_id, rounds}`; verdict "ok" iff round 1 delivered the
@@ -145,9 +155,9 @@ and nothing else.
   keeps reasoning or refuses degrades `first_action` to
   `{"none": reason}` (extra reasoning kept in `probe_thoughts`),
   never the verdict.
-- CLI: `python3 dryrun.py --system-prompt-file sys.txt "user text"`
-  (`--tools-file` overrides the shipped roster; `--no-probe` for
-  round-1-only). Prints the result dict as JSON; exits 0 iff
+- CLI: `python3 dryrun.py "user text"` (`--system-prompt-file` and
+  `--tools-file` override the shipped environment; `--no-probe`
+  for round-1-only). Prints the result dict as JSON; exits 0 iff
   verdict "ok".
 
 ## wire_capture.py

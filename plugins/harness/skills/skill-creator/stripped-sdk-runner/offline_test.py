@@ -536,16 +536,20 @@ def main():
     check("dryrun: round-1 refusal surfaces as the verdict",
           res["verdict"] == "refusal (round 1)" and len(REQS) == 1)
 
-    # -- dryrun default roster: the shipped Claude Code capture ---------
+    # -- dryrun default env: the shipped captured environments ----------
     shipped = dryrun.default_roster()
     replica = json.load(open(os.path.join(
-        KIT, "roster-replicated-env-20260814.json"), encoding="utf-8"))
-    check("roster files: wire-shape tool entries, no think collision",
+        KIT, "envs", "replicated-env-20260814", "tools.json"),
+        encoding="utf-8"))
+    check("env rosters: wire-shape tool entries, no think collision",
           all(isinstance(r, list) and r
               and all(sorted(t) == ["description", "input_schema", "name"]
                       for t in r)
               and think.THINK["name"] not in [t["name"] for t in r]
               for r in (shipped, replica)))
+    check("env system prompt: nonempty, the captured CLI identity",
+          dryrun.default_system().startswith(
+              "You are Claude Code, Anthropic's official CLI for Claude."))
     fresh()
     CANNED.append((200, tool_reply("think", ['{"thoughts": "real"}'])))
     res = dryrun.dry_run(SYS, USER, probe=False)
@@ -591,18 +595,20 @@ def main():
         json.dump(ROSTER, f)
     p = subprocess.run(
         [sys.executable, os.path.join(KIT, "dryrun.py"),
-         "--system-prompt-file", work, "--tools-file", tf,
-         "--no-probe", "--no-thinking", USER],
+         "--tools-file", tf,   # system prompt deliberately omitted:
+         "--no-probe", "--no-thinking", USER],  # the shipped default
         capture_output=True, text=True)
     try:
         out = json.loads(p.stdout)
     except ValueError:
         out = {}
     body = REQS[0][0] if REQS else {}
-    check("dryrun cli: exits 0, thoughts in JSON, one request",
+    check("dryrun cli: exits 0, shipped system default, one request",
           p.returncode == 0 and out.get("thoughts") == "cli dry"
           and out.get("first_action") is None and len(REQS) == 1
-          and body.get("tools") == [think.THINK] + ROSTER,
+          and body.get("tools") == [think.THINK] + ROSTER
+          and body.get("system", [{}, {}])[1].get("text")
+          == dryrun.default_system(),
           "exit=%s stderr=%r" % (p.returncode, p.stderr[-120:]))
 
     print("\n%d failure(s)" % len(FAILS))
