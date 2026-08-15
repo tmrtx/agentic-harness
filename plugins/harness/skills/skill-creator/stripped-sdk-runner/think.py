@@ -96,26 +96,58 @@ def write_answer_tool(answer_fields=None):
     }
 
 
-def _halt_native(cb):
+def thoughts_text(calls):
+    """The reasoning text among `calls`: every think call's thoughts,
+    joined in arrival order (parallel calls all count)."""
+    return "\n\n".join(c["input"].get("thoughts") or ""
+                       for c in calls if c["name"] == THINK["name"])
+
+
+def halt_native(cb):
+    """stream_round halt for the abort rail: truthy at a native
+    (private-pass) block, so the round hangs up 2-5 tokens in."""
     return cb.get("type") in ("thinking", "redacted_thinking")
 
 
-def _native(r):
+def native_tokens(r):
+    """Billed private-pass tokens of one round — the closing check's
+    number; 0 is the scheme's claim."""
     return ((r["usage"].get("output_tokens_details") or {}).get("thinking_tokens")) or 0
 
 
-def _bad(r, tool):
+def bad_round(r, tool):
     """The failure shapes, in check order: transport, the private pass
     (streamed or billed), refusal, a missing forced call."""
     if r["status"] != 200:
         return "http %d" % r["status"]
-    if r["stop_reason"] == "halted" or _native(r):
+    if r["stop_reason"] == "halted" or native_tokens(r):
         return "native-thinking"
     if r["stop_reason"] == "refusal":
         return "refusal"
     if not any(c["name"] == tool for c in r["tool_calls"]):
         return "stop %s, no %s call" % (r["stop_reason"], tool)
     return None
+
+
+def acknowledged(calls):
+    """The transcript extension that echoes `calls` and answers every
+    one with the neutral receipt — the scheme's tool results carry no
+    information, so nothing but the caller's text and the model's own
+    output steers the next round."""
+    return [
+        {"role": "assistant", "content": calls},
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": c["id"],
+                    "content": "Acknowledged.",
+                }
+                for c in calls
+            ],
+        },
+    ]
 
 
 def probe(body, timeout=600):
@@ -171,7 +203,7 @@ def run(
             "verdict": verdict,
             "thoughts": thoughts,
             "answer": answer,
-            "native_thinking_tokens": sum(_native(r) for r in rounds),
+            "native_thinking_tokens": sum(native_tokens(r) for r in rounds),
             "output_tokens": sum(
                 (r["usage"].get("output_tokens") or 0) for r in rounds
             ),
@@ -180,32 +212,19 @@ def run(
         }
 
     body, sid = build(THINK["name"])
-    r1 = bare_runner.stream_round(body, halt=_halt_native, timeout=timeout)
-    bad = _bad(r1, THINK["name"])
+    r1 = bare_runner.stream_round(body, halt=halt_native, timeout=timeout)
+    bad = bad_round(r1, THINK["name"])
     if bad:
         return summary("%s (round 1)" % bad, [r1])
     # The model may emit several reasoning calls in one response; keep
     # them all and replay the transcript it actually produced.
     calls = [c for c in r1["tool_calls"] if c["name"] == THINK["name"]]
-    thoughts = "\n\n".join(c["input"].get("thoughts") or "" for c in calls)
+    thoughts = thoughts_text(r1["tool_calls"])
 
-    messages = body["messages"] + [
-        {"role": "assistant", "content": calls},
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "tool_result",
-                    "tool_use_id": c["id"],
-                    "content": "Acknowledged.",
-                }
-                for c in calls
-            ],
-        },
-    ]
+    messages = body["messages"] + acknowledged(calls)
     body2, _ = build("write_answer", messages=messages, sid=sid)
-    r2 = bare_runner.stream_round(body2, halt=_halt_native, timeout=timeout)
-    bad = _bad(r2, "write_answer")
+    r2 = bare_runner.stream_round(body2, halt=halt_native, timeout=timeout)
+    bad = bad_round(r2, "write_answer")
     if bad:
         return summary("%s (round 2)" % bad, [r1, r2], thoughts=thoughts)
     inp = next(c for c in r2["tool_calls"] if c["name"] == "write_answer")["input"]
