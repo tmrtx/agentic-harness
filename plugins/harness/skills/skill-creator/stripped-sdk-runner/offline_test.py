@@ -3,7 +3,8 @@
 /v1/messages server plays the API. Covers what integration_test.py
 (live wire parity against a fresh `claude -p`) cannot cheaply: response
 parsing, tool_calls, stream_round's halt lever, refusal surfacing,
-quota retry, and the think-tool two-round transcript mechanics.
+quota retry, the think-tool two-round transcript mechanics, and the
+dry run's stopped-at-reasoning mechanics.
 
 Run: python3 offline_test.py   (exit 0 = green)
 """
@@ -29,6 +30,7 @@ KIT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, KIT)
 import bare_runner  # noqa: E402
 import think  # noqa: E402
+import dryrun  # noqa: E402
 
 FAILS = []
 
@@ -140,6 +142,21 @@ SYS = "You are a canned-wire probe."
 USER = "Probe input."
 TOOL = think.THINK
 FORCE = {"type": "tool", "name": "think"}
+# A synthetic stand-in for a target environment's tool roster.
+ROSTER = [
+    {"name": "search_files",
+     "description": "Search the workspace for a pattern.",
+     "input_schema": {"type": "object",
+                      "properties": {"pattern": {"type": "string"}},
+                      "required": ["pattern"]}},
+    {"name": "edit_file",
+     "description": "Replace text in a file.",
+     "input_schema": {"type": "object",
+                      "properties": {"path": {"type": "string"},
+                                     "old": {"type": "string"},
+                                     "new": {"type": "string"}},
+                      "required": ["path", "old", "new"]}},
+]
 
 
 def beta_header(headers):
@@ -388,6 +405,156 @@ def main():
     check("think.probe: refusal read",
           think.probe(b) == ("refusal", None))
 
+    # -- dryrun: round 1 forces think with the roster declared;
+    #    no working round is ever sent when the probe is off ------------
+    fresh()
+    CANNED.append((200, tool_reply("think", ['{"thoughts": "map first"}'],
+                                   out=500)))
+    res = dryrun.dry_run(SYS, USER, tools=ROSTER, probe=False)
+    check("dryrun: round-1-only, thoughts in hand",
+          res["verdict"] == "ok" and res["thoughts"] == "map first"
+          and res["first_action"] is None and res["probe_thoughts"] is None
+          and res["cochannel_calls"] == [] and len(REQS) == 1
+          and res["output_tokens"] == 500
+          and res["native_thinking_tokens"] == 0,
+          "got %r, %d request(s)" % (res["verdict"], len(REQS)))
+    body = REQS[0][0]
+    check("dryrun: forced think rides with the full roster",
+          body["tools"] == [think.THINK] + ROSTER
+          and body["tool_choice"] == {"type": "tool", "name": "think"})
+
+    # -- dryrun probe: transcript replayed under tool_choice any; the
+    #    first intended action arrives complete, then the line drops ----
+    fresh()
+    CANNED.append((200, tool_reply("think", ['{"thoughts": "plan"}'],
+                                   tid="tu_d1", out=500)))
+    CANNED.append((200, [
+        ev_start(),
+        ev_block(0, {"type": "tool_use", "id": "tu_d2",
+                     "name": "search_files", "input": {},
+                     "caller": {"type": "direct"}}),
+        ev_json(0, '{"pattern": '), ev_json(0, '"TODO"}'), ev_bstop(0),
+        # a second action begins; the dry run must hang up, not read on
+        ev_block(1, {"type": "tool_use", "id": "tu_d3", "name": "edit_file",
+                     "input": {}, "caller": {"type": "direct"}}),
+        ev_json(1, '{"path": "x"}'), ev_bstop(1),
+        ev_end("tool_use", 80)]))
+    res = dryrun.dry_run(SYS, USER, tools=ROSTER)
+    check("dryrun probe: first complete action, then hang up",
+          res["verdict"] == "ok" and res["thoughts"] == "plan"
+          and res["first_action"] == {"name": "search_files",
+                                      "input": {"pattern": "TODO"}}
+          and res["rounds"][1]["stop_reason"] == "halted"
+          # the audit contract: the block the hang-up cut off stays in
+          # rounds — empty input, never digested into first_action
+          and [c["input"] for c in res["rounds"][1]["tool_calls"]]
+          == [{"pattern": "TODO"}, {}],
+          "first_action=%r" % (res["first_action"],))
+    b1, b2 = REQS[0][0], REQS[1][0]
+    check("dryrun probe: any-tool round rides the replayed session",
+          b2["tool_choice"] == {"type": "any"}
+          and b2["tools"] == b1["tools"]
+          and json.loads(b1["metadata"]["user_id"])["session_id"]
+          == json.loads(b2["metadata"]["user_id"])["session_id"]
+          and b2["messages"] == b1["messages"] + [
+              {"role": "assistant", "content": [
+                  {"type": "tool_use", "id": "tu_d1", "name": "think",
+                   "input": {"thoughts": "plan"}}]},
+              {"role": "user", "content": [
+                  {"type": "tool_result", "tool_use_id": "tu_d1",
+                   "content": "Acknowledged."}]}])
+
+    # -- dryrun: an action smuggled into the forced round is recorded
+    #    and the probe replays the transcript the model actually made ---
+    fresh()
+    CANNED.append((200, [
+        ev_start(),
+        ev_block(0, {"type": "tool_use", "id": "tu_s1", "name": "think",
+                     "input": {}, "caller": {"type": "direct"}}),
+        ev_json(0, '{"thoughts": "quick check"}'), ev_bstop(0),
+        ev_block(1, {"type": "tool_use", "id": "tu_s2",
+                     "name": "search_files", "input": {}}),
+        ev_json(1, '{"pattern": "cfg"}'), ev_bstop(1),
+        ev_end("tool_use", 400)]))
+    CANNED.append((200, tool_reply("edit_file",
+                                   ['{"path": "a", "old": "b", "new": "c"}'],
+                                   tid="tu_s3", out=60)))
+    res = dryrun.dry_run(SYS, USER, tools=ROSTER)
+    r2_msgs = REQS[1][0]["messages"]
+    check("dryrun: cochannel call recorded, replayed, acknowledged",
+          res["verdict"] == "ok"
+          and res["cochannel_calls"] == [{"name": "search_files",
+                                          "input": {"pattern": "cfg"}}]
+          and res["first_action"] == {"name": "edit_file",
+                                      "input": {"path": "a", "old": "b",
+                                                "new": "c"}}
+          and [c["id"] for c in r2_msgs[-2]["content"]] == ["tu_s1", "tu_s2"]
+          and [t["tool_use_id"] for t in r2_msgs[-1]["content"]]
+          == ["tu_s1", "tu_s2"],
+          "cochannel=%r" % (res["cochannel_calls"],))
+
+    # -- dryrun probe: the model may keep reasoning instead of acting ---
+    fresh()
+    CANNED.append((200, tool_reply("think", ['{"thoughts": "t1"}'],
+                                   tid="tu_k1")))
+    CANNED.append((200, tool_reply("think", ['{"thoughts": "still unsure"}'],
+                                   tid="tu_k2", out=90)))
+    res = dryrun.dry_run(SYS, USER, tools=ROSTER)
+    check("dryrun probe: more reasoning kept, labeled, not an action",
+          res["verdict"] == "ok" and res["first_action"] == {"none": "think"}
+          and res["probe_thoughts"] == "still unsure"
+          and res["thoughts"] == "t1")
+
+    # -- dryrun probe: no call at all degrades first_action only --------
+    fresh()
+    CANNED.append((200, tool_reply("think", ['{"thoughts": "kept"}'])))
+    CANNED.append((200, [ev_start(), ev_end("refusal", 0)]))
+    res = dryrun.dry_run(SYS, USER, tools=ROSTER)
+    check("dryrun probe: probe refusal, thoughts stay the product",
+          res["verdict"] == "ok" and res["thoughts"] == "kept"
+          and res["first_action"] == {"none": "refusal"})
+
+    # -- dryrun guard rails: a bad round 1 aborts before any probe ------
+    fresh()
+    CANNED.append((200, THINKING_REPLY))
+    res = dryrun.dry_run(SYS, USER, tools=ROSTER)
+    check("dryrun: native thinking aborts, probe never sent",
+          res["verdict"] == "native-thinking (round 1)"
+          and res["thoughts"] is None and res["first_action"] is None
+          and len(REQS) == 1, "%d request(s)" % len(REQS))
+
+    fresh()  # 0-thinking guard: the call arrived but usage says 500
+    CANNED.append((200, tool_reply("think", ['{"thoughts": "t"}'],
+                                   think=500)))
+    res = dryrun.dry_run(SYS, USER, tools=ROSTER)
+    check("dryrun: billed-thinking backstop, probe never sent",
+          res["verdict"] == "native-thinking (round 1)" and len(REQS) == 1)
+
+    fresh()
+    CANNED.append((200, [ev_start(), ev_end("refusal", 0)]))
+    res = dryrun.dry_run(SYS, USER, tools=ROSTER)
+    check("dryrun: round-1 refusal surfaces as the verdict",
+          res["verdict"] == "refusal (round 1)" and len(REQS) == 1)
+
+    # -- dryrun default roster: the shipped Claude Code capture ---------
+    shipped = dryrun.default_roster()
+    check("roster file: wire-shape tool entries, no think collision",
+          isinstance(shipped, list) and shipped
+          and all(sorted(t) == ["description", "input_schema", "name"]
+                  for t in shipped)
+          and think.THINK["name"] not in [t["name"] for t in shipped])
+    fresh()
+    CANNED.append((200, tool_reply("think", ['{"thoughts": "real"}'])))
+    res = dryrun.dry_run(SYS, USER, probe=False)
+    check("dryrun: tools omitted declares the shipped roster verbatim",
+          res["verdict"] == "ok"
+          and REQS[0][0]["tools"] == [think.THINK] + shipped)
+    fresh()
+    CANNED.append((200, tool_reply("think", ['{"thoughts": "bare"}'])))
+    res = dryrun.dry_run(SYS, USER, tools=[], probe=False)
+    check("dryrun: tools=[] stays bare, think alone on the wire",
+          res["verdict"] == "ok" and REQS[0][0]["tools"] == [think.THINK])
+
     # -- CLI: the tools flags are usable end-to-end ---------------------
     # A tool-only reply IS the reply (exit 0), and --no-thinking exists
     # because the 4.5 family — the quick-test family — rejects forced
@@ -411,6 +578,28 @@ def main():
           == [{"thoughts": "cli"}]
           and body.get("thinking") == {"type": "disabled"}
           and "context_management" not in body,
+          "exit=%s stderr=%r" % (p.returncode, p.stderr[-120:]))
+
+    # -- dryrun CLI: roster file + --no-probe usable end-to-end ---------
+    fresh()
+    CANNED.append((200, tool_reply("think", ['{"thoughts": "cli dry"}'])))
+    tf = os.path.join(os.environ.get("TMPDIR", "/tmp"), "offline-roster.json")
+    with open(tf, "w") as f:
+        json.dump(ROSTER, f)
+    p = subprocess.run(
+        [sys.executable, os.path.join(KIT, "dryrun.py"),
+         "--system-prompt-file", work, "--tools-file", tf,
+         "--no-probe", "--no-thinking", USER],
+        capture_output=True, text=True)
+    try:
+        out = json.loads(p.stdout)
+    except ValueError:
+        out = {}
+    body = REQS[0][0] if REQS else {}
+    check("dryrun cli: exits 0, thoughts in JSON, one request",
+          p.returncode == 0 and out.get("thoughts") == "cli dry"
+          and out.get("first_action") is None and len(REQS) == 1
+          and body.get("tools") == [think.THINK] + ROSTER,
           "exit=%s stderr=%r" % (p.returncode, p.stderr[-120:]))
 
     print("\n%d failure(s)" % len(FAILS))

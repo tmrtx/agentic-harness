@@ -87,6 +87,53 @@ and nothing else.
 - Guard rails wired in: a native thinking block aborts at its first
   streamed block, stop_reason "refusal" becomes the verdict rather
   than silence, and billed thinking_tokens must be 0.
+- The scheme's vocabulary is public — THINK, halt_native,
+  bad_round, native_tokens, thoughts_text, acknowledged — so
+  sibling schemes (dryrun.py) compose instead of copying.
+
+## dryrun.py
+- Stopped-at-reasoning dry runs — the pre-ship behavioral X-ray.
+  WHY (2026-08-14 dry-run experiments): reasoning chains contain
+  defect enactment — the model performing a misreading in its plan
+  rather than stating it anywhere — that no readback or self-report
+  surfaces. The dry run captures that chain from a prompt before
+  any side effect exists.
+- `dry_run(system_text, user_text, tools=, model=, effort=, probe=,
+  ...)` runs think.py's forced round 1 with the target
+  environment's FULL tool roster declared alongside — the model
+  reasons inside a tooled environment and the chain arrives as the
+  think calls' input — and never sends a working round (probe off:
+  exactly one request reaches the wire). Calls smuggled into the
+  forced round are recorded (`cochannel_calls`), never executed.
+- The default roster is the real thing: `roster-claude-code.json`,
+  the 20-tool declaration Claude Code itself puts on the wire,
+  captured verbatim from a default Agent SDK `query()`
+  (claude-cli 2.1.233 / agent-sdk 0.3.233, 2026-08-15; pristine
+  container, wire_capture.py in front of a 401 stub — the request
+  was recorded, nothing reached the API, all 11 retry bodies
+  byte-identical). `tools=None` declares it; `tools=[]` dry-runs
+  bare; pass your own list for a customized target — MCP servers
+  and per-repo skills are never in a default capture. Re-freeze by
+  re-running that rig against a newer SDK and replacing the file.
+  Returns `{verdict, thoughts, cochannel_calls, first_action,
+  probe_thoughts, native_thinking_tokens, output_tokens,
+  session_id, rounds}`; verdict "ok" iff round 1 delivered the
+  forced call with 0 thinking tokens billed — think.py's rails.
+- The probe (on by default): one more round on the SAME session —
+  the transcript the model actually produced, every call answered
+  "Acknowledged.", tool_choice `{"type": "any"}` — hung up right
+  after the FIRST tool_use block completes. The first intended
+  action arrives with full args and nothing can execute. Cost: the
+  transcript re-billed as input plus about one call's output; a
+  halted round's usage counts only what streamed before the
+  hang-up, so the probe's output_tokens are a floor. A probe that
+  keeps reasoning or refuses degrades `first_action` to
+  `{"none": reason}` (extra reasoning kept in `probe_thoughts`),
+  never the verdict.
+- CLI: `python3 dryrun.py --system-prompt-file sys.txt "user text"`
+  (`--tools-file` overrides the shipped roster; `--no-probe` for
+  round-1-only). Prints the result dict as JSON; exits 0 iff
+  verdict "ok".
 
 ## wire_capture.py
 - Debug/verification proxy, kept lean for when the wire needs to be
@@ -121,5 +168,6 @@ and nothing else.
 - `python3 offline_test.py` — no network, no login: a local canned
   /v1/messages server plays the API. Covers what the live test
   cannot cheaply: response parsing, tool_calls, stream_round's halt
-  lever, refusal surfacing, quota retry, and the think-tool
-  two-round transcript mechanics.
+  lever, refusal surfacing, quota retry, the think-tool two-round
+  transcript mechanics, and the dry run's stopped-at-reasoning
+  mechanics.
