@@ -56,6 +56,7 @@ advisory: recorded in a bypass entry, reported by the harness, never a block.
 """
 import html as html_mod
 import json
+import os
 import re
 import sys
 
@@ -118,6 +119,28 @@ def blocks_from_markdown(src):
     return out
 
 
+# A markdown file may open with a YAML preamble between `---` fences. Left in
+# place it becomes the document's first lines, the title lookup finds no
+# heading, and every title-scoped mechanism reports nothing - which switches
+# three of the four blocking signals off for the price of a four-line header.
+# The file class that always opens this way is exactly the one whose writing
+# this repository cares most about: skills, agent definitions, commands.
+FRONTMATTER = re.compile(r'\A---[ \t]*\r?\n(.*?\r?\n)?---[ \t]*(?:\r?\n|\Z)',
+                         re.S)
+# The delimiter alone is ambiguous: a document may legitimately open with a
+# thematic break. A YAML mapping key inside the fences is what tells the two
+# apart, so a block with no `key:` line is left alone and read as prose.
+YAML_KEY = re.compile(r'(?m)^[A-Za-z_][\w.\-]*[ \t]*:')
+
+
+def strip_frontmatter(src):
+    """The document without its YAML preamble, so its heading is its title."""
+    m = FRONTMATTER.match(src)
+    if m and YAML_KEY.search(m.group(1) or ''):
+        return src[m.end():]
+    return src
+
+
 def extract_text(src, is_html=False):
     """The document as prose: blocks, then sentences, quotes masked.
 
@@ -125,6 +148,8 @@ def extract_text(src, is_html=False):
     never files, so the source string is the parameter here. Nothing else about
     the extraction changed.
     """
+    if not is_html:
+        src = strip_frontmatter(src)
     raw_blocks = blocks_from_html(src) if is_html else blocks_from_markdown(src)
     blocks, all_quotes = [], []
     for b in raw_blocks:
@@ -819,30 +844,64 @@ ADVISORY_ONLY = tuple(n for n in ALL_SIGNALS if n not in CANDIDATE_SIGNALS)
 TITLE_SCOPED = ('opening_referent.title', 'opening_referent.title_e3_suspended',
                 'positional_aphorism.title')
 
+# Each entry is (WG code, what the reader runs into, what to write instead).
+# The code is carried rather than restated so the skill stays the one home for
+# the words: a reworded directive changes the skill, and the message here keeps
+# pointing at it (CIA-9.4). The two sentences remain because a denial that only
+# cited a code would send the writer away to learn what they broke.
 PRINCIPLES = {
     'opening_referent.title': (
+        'WG-1, WG-2',
         'the title names something the reader has not been told about yet',
         'a title says who does what to which part, in words that stand alone'),
     'opening_referent.title_e3_suspended': (
+        'WG-1, WG-2',
         'the title names something the reader has not been told about yet',
         'a title says who does what to which part, in words that stand alone'),
     'opening_referent.opening_window': (
+        'WG-1, WG-2',
         'the opening does not establish who or what the text is about',
-        'the first sentences name the actor and define every thing they '
-        'mention, or refer to it in full'),
+        'the opening names the actor and defines every thing it mentions, or '
+        'refers to each in full'),
     'opening_referent.opening_window_e3_suspended': (
+        'WG-1, WG-2',
         'the opening does not establish who or what the text is about',
-        'the first sentences name the actor and define every thing they '
-        'mention, or refer to it in full'),
+        'the opening names the actor and defines every thing it mentions, or '
+        'refers to each in full'),
     'front_loaded_framing.colon_opener': (
+        'WG-3',
         'a framing phrase delays the point of the opening sentence',
         'the point arrives first, and any qualification follows it'),
     'positional_aphorism.title': (
+        'WG-4',
         'the title carries a rhetorical contrast instead of a statement',
         'a title states what is true and leaves out what is not'),
 }
 
-SKILL_PATH = 'plugins/harness/skills/writing-guard/SKILL.md'
+# How the platform resolves the skill: by load name. A denial withholds the
+# failing span, so this pointer is the writer's entire compensation - it has to
+# resolve from any repository, in any session.
+SKILL_REF = 'harness:writing-guard'
+SKILL_RELPATH = os.path.join('skills', 'writing-guard', 'SKILL.md')
+
+
+def skill_location():
+    """This machine's path to the skill file, or None when it cannot be known.
+
+    CLAUDE_PLUGIN_ROOT is the plugin's own directory at run time, so the path
+    built from it lands inside the plugin cache. A path written into the source
+    instead would carry the `plugins/harness/` prefix that exists only in this
+    repository, and would be relative - so a session running in a consumer
+    repository would resolve it against that repository and find nothing.
+    Returning None when the file is not there keeps the message from offering a
+    pointer that does not open, which is the failure this function exists to
+    prevent.
+    """
+    root = os.environ.get('CLAUDE_PLUGIN_ROOT')
+    if not root:
+        return None
+    path = os.path.join(root, SKILL_RELPATH)
+    return path if os.path.isfile(path) else None
 
 # --------------------------------------------------------------------------
 # GENERATED BLOCK - do not edit by hand. Regenerate with:
@@ -935,21 +994,25 @@ def deny_message(blocking):
     """
     principles, targets = [], []
     for name in blocking:
-        principle, target = PRINCIPLES[name]
-        if principle not in principles:
-            principles.append(principle)
+        code, principle, target = PRINCIPLES[name]
+        labeled = '%s: %s' % (code, principle)
+        if labeled not in principles:
+            principles.append(labeled)
             targets.append(target)
     if not principles:
         return ''
+    where = skill_location()
     return ('Blocked by the writing guard.\n'
             'What a reader meeting this cold runs into: %s.\n'
             'Write the passage again so that %s.\n'
-            'The rules, and the one register that has passed a reader, are in '
-            '%s. Work from them and write it fresh rather than editing out '
-            'whatever you think this gate objected to - it names no phrase on '
-            'purpose, because swapping those words is not the same as writing '
-            'something a reader can follow.'
-            % ('; '.join(principles), '; '.join(targets), SKILL_PATH))
+            'Load the %s skill - directives WG-1 to WG-5 - for the rules and '
+            'the one register that has passed a reader%s. Work from them and '
+            'write it fresh rather than editing out whatever you think this '
+            'gate objected to - it names no phrase on purpose, because '
+            'swapping those words is not the same as writing something a '
+            'reader can follow.'
+            % ('; '.join(principles), '; '.join(targets), SKILL_REF,
+               (' (on this machine: %s)' % where) if where else ''))
 
 
 # ========================================================================= CLI

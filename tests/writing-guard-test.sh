@@ -23,6 +23,17 @@ export HOME="$TMP/home"
 BYPASS="$HOME/.claude/writing-guard-bypass.jsonl"
 mkdir -p "$CLAUDE_PLUGIN_DATA" "$HOME"
 
+# A denial withholds the failing span and hands back a pointer to the skill
+# instead, so the pointer has to resolve. The gate names the skill the way the
+# platform loads it and derives the file path from CLAUDE_PLUGIN_ROOT, the
+# plugin's own directory at run time. The suite gives it a plugin root of its
+# own: the assertion is about the derivation, not about this checkout's layout,
+# and the skill file itself lands from a different branch.
+export CLAUDE_PLUGIN_ROOT="$TMP/plugin-root"
+SKILL_FILE="$CLAUDE_PLUGIN_ROOT/skills/writing-guard/SKILL.md"
+mkdir -p "$(dirname "$SKILL_FILE")" "$TMP/plugin-root-without-skill"
+printf '# WG: Writing Guard\n' > "$SKILL_FILE"
+
 # --- payload builders -------------------------------------------------------
 # python3 does the JSON quoting: commit messages carry quotes and newlines that
 # printf would mangle, and a mangled payload tests nothing the harness would
@@ -71,26 +82,62 @@ reset_state() { rm -rf "$CLAUDE_PLUGIN_DATA" "$HOME/.claude"; mkdir -p "$CLAUDE_
 # The no-leak rule has two halves. An explanation may teach the principle, but
 # it may never hand back the failing words, and it may never point at where they
 # are: either one lets a writer comply lexically without understanding.
+#
+# Both sides are decoded and tokenized with the same word pattern before they
+# are compared. The gate's stdout is JSON, so its newlines arrive as the
+# two-character escape `\n`; comparing the raw string would leave `queued\n`
+# glued to `handlers` and a quote wrapped over two lines would read as no quote
+# at all. Punctuation and emphasis markers are stripped for the same reason -
+# whitespace and markup must not be usable to smuggle the span back to the
+# writer.
 assert_no_span_quotes() { # name input_file message
   local hit
   hit="$(python3 -c '
 import json, re, sys
-text = open(sys.argv[1], encoding="utf-8").read()
-msg = " ".join(json.dumps(sys.argv[2]).split()).lower()
-words = re.findall(r"[A-Za-z0-9_/.-]+", text)
+WORD = re.compile(r"[A-Za-z0-9_/.-]+")
+text, message = open(sys.argv[1], encoding="utf-8").read(), sys.argv[2]
+
+def strings(node):
+    """Every string value anywhere in the decoded payload.
+
+    Walking the object rather than the serialized text means a span split
+    across two fields - a reason here, a systemMessage there - is still one
+    sequence of words when the two are joined.
+    """
+    if isinstance(node, str):
+        yield node
+    elif isinstance(node, dict):
+        for value in node.values():
+            for s in strings(value):
+                yield s
+    elif isinstance(node, list):
+        for value in node:
+            for s in strings(value):
+                yield s
+
+try:
+    decoded = " ".join(strings(json.loads(message)))
+except ValueError:
+    decoded = message
+msg = " ".join(w.lower() for w in WORD.findall(decoded))
+words = [w.lower() for w in WORD.findall(text)]
 for i in range(len(words) - 5):
-    shingle = " ".join(words[i:i+6]).lower()
+    shingle = " ".join(words[i:i+6])
     if shingle in msg:
         print(shingle); break
 ' "$2" "$3")"
   [ -z "$hit" ] && pass "$1" || fail "$1" "message quotes six words of the input: <$hit>"
 }
+# An ordinal locates the span whether it is written as a digit or as a word,
+# and whether it leads or trails the noun: "the first sentence of the second
+# paragraph" points at the failing words exactly as well as "line 3" does.
 assert_no_locations() { # name message
   local hit
   hit="$(python3 -c '
 import re, sys
-m = re.search(r"(?i)\b(line|lines|sentence|paragraph|heading|word|column|char|character|position|offset)\s*#?\s*\d",
-              sys.argv[1])
+NOUN = r"(?:line|sentence|paragraph|heading|word|column|char|character|position|offset|bullet|item)s?"
+ORD = r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|last|final)"
+m = re.search(r"(?i)\b(?:%s\s*#?\s*%s|%s\s+%s)\b" % (NOUN, ORD, ORD, NOUN), sys.argv[1])
 print(m.group(0) if m else "")
 ' "$2")"
   [ -z "$hit" ] && pass "$1" || fail "$1" "message locates the span: <$hit>"
@@ -179,10 +226,68 @@ assert_silent "a fail-open decides nothing on stdout" "$out"
 reset_state
 out="$(artifact_payload "$VIOLATING_MD" publish | "$GATE" 2>/dev/null)"
 assert_denied "a violating Artifact publish is denied" "$out"
-assert_contains "the denial names the writing skill by path" \
-  "plugins/harness/skills/writing-guard/SKILL.md" "$out"
+assert_contains "the denial names the writing skill by load name" \
+  "harness:writing-guard" "$out"
+assert_contains "the denial names the skill file where this machine keeps it" \
+  "$SKILL_FILE" "$out"
+assert_contains "the denial names the directive the reader broke" "WG-4" "$out"
 assert_no_span_quotes "the denial quotes no span of the file" "$VIOLATING_MD" "$out"
 assert_no_locations "the denial does not locate the span" "$out"
+
+# A pointer that does not open is worse than no pointer: it costs the writer a
+# search and teaches them the gate is broken. So the path is offered only when
+# the file is really there, and the load name carries the denial alone when it
+# is not.
+reset_state
+out="$(artifact_payload "$VIOLATING_MD" publish \
+       | CLAUDE_PLUGIN_ROOT="$TMP/plugin-root-without-skill" "$GATE" 2>/dev/null)"
+assert_denied "a violating publish is still denied with no skill file on disk" "$out"
+assert_contains "that denial still names the skill by load name" \
+  "harness:writing-guard" "$out"
+assert_missing "that denial offers no path to a skill file that is not there" \
+  "$TMP/plugin-root-without-skill" "$out"
+
+reset_state
+out="$(artifact_payload "$VIOLATING_MD" publish \
+       | env -u CLAUDE_PLUGIN_ROOT "$GATE" 2>/dev/null)"
+assert_contains "a denial outside a plugin install still names the skill" \
+  "harness:writing-guard" "$out"
+assert_missing "a denial outside a plugin install offers no path" \
+  "on this machine" "$out"
+
+# YAML frontmatter is metadata, not the document. Three of the four blocking
+# signals read the title, so a preamble that hides the heading would switch
+# them off - and every skill, agent definition and command in this repository
+# opens with one.
+FRONTMATTER_MD="$TMP/violating-frontmatter.md"
+{ printf -- '---\nname: rollout-notes\ncode: RN\ndescription: what the rollout did\n---\n\n'
+  cat "$VIOLATING_MD"; } > "$FRONTMATTER_MD"
+reset_state
+out="$(artifact_payload "$FRONTMATTER_MD" publish | "$GATE" 2>/dev/null)"
+assert_denied "a violating publish is denied through its YAML frontmatter" "$out"
+assert_contains "the frontmattered denial still reads the title" "WG-4" "$out"
+assert_no_span_quotes "the frontmattered denial quotes no span of the file" \
+  "$FRONTMATTER_MD" "$out"
+
+# The `---` fence alone is a thematic break as often as it is a preamble. What
+# tells them apart is a YAML mapping key between the fences; without one the
+# lines are prose and must still be judged. Here the only violating sentence
+# sits inside the fences, so a strip that took prose with it would leave the
+# gate reading a clean opening and saying nothing.
+RULE_MD="$TMP/violating-thematic-break.md"
+cat > "$RULE_MD" <<'EOF'
+---
+
+Escalation logic for the queued handlers themselves: the fallback reads the
+region before the normalization runs.
+
+---
+
+The migration finished at 14:02.
+EOF
+reset_state
+out="$(artifact_payload "$RULE_MD" publish | "$GATE" 2>/dev/null)"
+assert_denied "prose between two thematic breaks is read, not stripped" "$out"
 
 reset_state
 out="$(artifact_payload "$VIOLATING_HTML" publish | "$GATE" 2>/dev/null)"

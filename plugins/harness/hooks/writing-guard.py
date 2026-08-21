@@ -9,7 +9,8 @@ THREE RULES THIS FILE EXISTS TO KEEP
 ------------------------------------
 1. It never says which words failed. A writer handed the failing span edits
    that span, which buys compliance with the detector and nothing for the
-   reader. So a denial carries the principle, the target, and the skill path.
+   reader. So a denial carries the principle, the target, and a pointer to the
+   writing-guard skill by the name the platform loads it under.
 2. It blocks twice and then gets out of the way. A gate that can stall a
    session indefinitely is a gate people disable. The third attempt at the same
    text passes, tells the user, and appends the whole text to a log they can
