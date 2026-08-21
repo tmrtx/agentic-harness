@@ -124,5 +124,6 @@ before push, prove the surgery did only what was claimed:
 
 ## constraints
 
+- you **MUST sanitize the commit messages** by eliminating essay rhetoric: defensive writing, persuasive-essay voice, aphorisms, coinage, compressed jargon, semantic chaining so that reading those messages induce minimum extraneous cognitive load on the reader.
+   - I would rather discard commits because they have essay rhetoric and hard to comprehend commit messages then to merge them into history, no matter how useful they are.
 - you must use a worktree to isolate everything you're doing from the repository (including clean-up once you are done).
-- you must sanitize the commit messages by eliminating defensive writing, persuasive writing, semantic chaining to make them easier to comprehend and process.
