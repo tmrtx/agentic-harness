@@ -66,7 +66,7 @@
     "oracle-class": "static",
     "ground-truth": "specified",
     "since": "2026-08-21",
-    "subject": "the opening of every published artifact and every git commit message: no title naming something the text has not introduced, no framing phrase ahead of the point in the opening sentence, no rhetorical contrast in a title",
+    "subject": "the opening of every published artifact and every git commit message: no title naming something the text has not introduced, no framing phrase ahead of the point in the opening sentence, no rhetorical contrast in a title; this is the mechanically detectable subset of ORC-14's register, and the words themselves live in the writing-guard skill",
     "mechanism": "plugins/harness/hooks/writing-guard.sh via PreToolUse on Artifact and Bash; the signals are defined in plugins/harness/hooks/writing_guard_detectors.py and the ones permitted to block are the generated BLOCKING_SIGNALS tuple; tested by tests/writing-guard-test.sh"
   },
   "ORC-13": {
@@ -80,7 +80,7 @@
     "oracle-class": "statistical",
     "ground-truth": "specified",
     "since": "2026-08-21",
-    "subject": "whether a user-facing text meets the writing register the principal accepts: the writing-guard skill's directives WG-1..WG-5, covering final messages, questions to the user, commit messages, PR descriptions and artifact prose",
+    "subject": "whether a user-facing text meets the writing register the principal accepts: the writing-guard skill's directives WG-1..WG-5, covering final messages, questions to the user, commit messages, PR descriptions and artifact prose; the subset a hook can decide, and therefore block on, is held by ORC-12",
     "mechanism": "score the text against WG-1..WG-5 and against the 50 answered labels the principal gave over two labeling rounds (mono-repo corpus/writing-guard/labels/round1-labels.json and labels/round2-labels.json, analysis in labels/ROUND2-ANALYSIS.md); the verdict aggregates over samples and carries a nonzero error rate, so no single text confirms or refutes a directive; the accepted floor is one repeat-confirmed 'okay' (r1-27 = r2-03) and one 'good' the principal qualified as 'closest to good' (r2-11), too thin for a numeric threshold; round 3 tests whether WG-5 ports to the commit genre and whether WG-4 holds in body position"
   }
 }

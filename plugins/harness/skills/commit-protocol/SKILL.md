@@ -20,8 +20,8 @@ Its message must give teleological, causal, and practical understanding of the c
 4. **Oracle trailer:** Each commit carries an `Oracle: [<oracle-class>|<ground-truth>]` git trailer. The dimensions come from the `oracle-ladder` skill. The ledger (`oracles.jsonl`) condenses trailer, verification, and target per change.
 
 Writing instructions — the reader is a maintainer or model under load; structure serves their eyes, not the author's:
-- BLUF; one idea per sentence; plain statement before term of art; active voice.
+- Register is `harness:writing-guard` (WG-1 to WG-5); what follows is commit-specific structure.
 - Bullets for parallel facts (mechanics, deletions, alternatives, mechanism items); blank lines between idea groups. Section labels alone are not structure.
 - Put detail where the reader's uncertainty is: a self-evident diff earns a compressed [CHANGE]; a non-obvious motivation earns an expanded [PROBLEM].
 - Ground every statement in the commit itself: no review-round narration, no PR/issue/governance-code chaining; state judgments in problem terms.
-- Wrap near 72 columns; one abstraction level per sentence.
+- Wrap near 72 columns.
