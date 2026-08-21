@@ -9,6 +9,28 @@
             "command": "printf '%s' '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Blocked by harness policy: automatic self-wake-up check-ins are disabled (send_later). Do not reschedule or use another scheduler to work around this; just end your turn normally.\"}}'"
           }
         ]
+      },
+      {
+        "matcher": "Artifact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/writing-guard.sh\"",
+            "timeout": 10,
+            "statusMessage": "Reading the page's opening"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/writing-guard.sh\"",
+            "timeout": 10,
+            "statusMessage": "Reading the commit message"
+          }
+        ]
       }
     ],
     "PostToolUse": [

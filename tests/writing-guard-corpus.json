@@ -1,0 +1,135 @@
+{
+ "schema": 1,
+ "what": "The accepted-writing texts the writing-guard blocking tier must stay silent on. tests/writing-guard-fp-validation.py runs every candidate blocking signal over okay_set_trusted; a signal qualifies for blocking only at zero fires there.",
+ "generated": "2026-08-21",
+ "generated_from": "/home/tmrts/workspace/mono-repo/.claude/worktrees/writing-guard/scratch/2026-08-21-writing-guard/curation",
+ "rule": "ORCHESTRATION.md \"ROUND-2 RECONCILED VERDICTS\" item 1: the stability-confirmed false-positive floor is r1-27 + r2-03 + r2-11 only; the P4 mission adds the r1-34 full text. r1-42 was removed from the floor after its okay -> bad flip.",
+ "okay_set_trusted": [
+  {
+   "id": "r1-27/r2-03",
+   "text": "The complexity here is that there's no certifying deliverable, so he has to\ninspect each screenshot I post plus the final rendered output himself. I'm\ntrying to express this as a complexity function: s for the number of\nprogress screenshots I choose to post (unbounded), and v for the distinct JSON\nvariants or sections I render. The burden scales with both - he's reading\neverything since there's no automated acceptance criterion.",
+   "sha256_16": "ebf634d5f8bc8c2d",
+   "mono_title": false,
+   "trusted": true,
+   "labels": [
+    "okay (round 1, item r1-27)",
+    "okay (round 2, item r2-03)"
+   ],
+   "provenance": {
+    "corpus_record": "jrnl-0009",
+    "payloads": [
+     "r1-2026-08-21g (6ceeff55c6aed4a2) item r1-27",
+     "r2-2026-08-21 (be469937b43dd1f3) item r2-03"
+    ],
+    "presentation": "markdown-rendered chat message, whole text, no title, context line \"An agent explaining, in chat, how it sees the reviewing workload.\"",
+    "why_trusted": "the only repeat-confirmed accepted text: rated okay twice on byte-identical presentation (ROUND2-ANALYSIS.md E.3)"
+   }
+  },
+  {
+   "id": "r2-11",
+   "text": "I went through the Langfuse observations for 2026-07-27 to 2026-08-13: 139 artifact publications across 35 sessions, and the 202 user turns that followed them. About 25 of those turns asked for a correction, spread over roughly 10 sessions.\n\nThey fall into five groups: claims sent without the reasoning behind them, decisions left for you to assemble, session coinage and codes, layouts that scatter what one judgment needs, and truncation with no way to expand it.\n\nThe skill I wrote from them is at `~/.claude/skills/artifact-reader-contract/SKILL.md`: six rules, 240 tokens of operative text against the 250-token budget.\n\nNext: re-measure how often these follow-ups happen after the skill has been in use for a few weeks.",
+   "sha256_16": "5c2e1f7d73b09ddc",
+   "mono_title": false,
+   "trusted": true,
+   "labels": [
+    "good (round 2, item r2-11) - user: \"closest to good\""
+   ],
+   "provenance": {
+    "corpus_record": "authored rewrite (d) of lf/sess record r1-61",
+    "payloads": [
+     "r2-2026-08-21 (be469937b43dd1f3) item r2-11"
+    ],
+    "presentation": "markdown-rendered agent final message, whole text, no title",
+    "why_trusted": "the only text rated good in 51 labels; the register the writing-guard skill targets (ROUND2-ANALYSIS.md E.2)"
+   }
+  },
+  {
+   "id": "r1-34-full",
+   "text": "# Walkthrough\n\n## Problem\n\nTyping in any prose buffer — most visibly `journal.org` — spams this on every corfu-auto idle cycle:\n\n```\nCorfu detected an error:\n  ...\n  error(\"ispell-lookup-words: No plain word-list found at systemdefault locations.  Customize `ispell-alternate-dictionary' to set yours.\")\n  ispell-lookup-words(\"thhas\")\n  ispell-completion-at-point()\n  corfu--capf-wrapper(ispell-completion-at-point 3)\n```\n\nA hack from 2025-05-25 (`ispell-program-name` = `\"echo\"` in `coding/init-corfu`) was supposed to stop this and did not.\n\n## Root cause (each link verified against the Emacs 30.1 sources in the devenv)\n\n1. **Emacs 30 changed a default.** `text-mode` now registers `ispell-completion-at-point` in `completion-at-point-functions` of every text-mode-derived buffer — org-mode included — because the new option `text-mode-ispell-word-completion` defaults to `completion-at-point` (`text-mode.el:155-156`). Nothing in this config enables it; the capf is baked into the buffer **once, at mode activation**.\n2. **The capf is eager.** `ispell-completion-at-point` calls `ispell-lookup-words` immediately (`ispell.el:3726`), which requires a plain word-list *file* and **signals an error** when none exists (`ispell.el:2555`).\n3. **Discovery is FHS-only.** `ispell-alternate-dictionary` probes `/usr/dict/web2`, `/usr/share/dict/words`, … (`ispell.el:208-216`). None exist on NixOS. The word list the system *does* ship — `environment.wordlist.enable = true` (`dotfiles/nixos/shared/common.nix:517`) exposes SCOWL via `$WORDLIST` — is never probed.\n4. **corfu-auto surfaces it loudly.** With `corfu-auto t`, the capf chain runs on every idle cycle; corfu wraps it in `handler-bind` → `corfu--debug`, printing the backtrace each time.\n\n**Why the old hack could not work:** word lookup greps the word-list file directly (`look`/`grep`, `ispell.el:2559-2564`) and never launches the spell-checker program, so `ispell-program-name` is irrelevant to the failing path — reproduced in batch Emacs: the error fires with the hack active. Meanwhile the hack *did* break flyspell (which `technical-writing/post-init-flyspell` enables in these same text/org/markdown buffers) by pointing the checker at `echo` instead of the aspell that `common.nix:397-400` installs.\n\n## The change\n\nTwo files:\n\n- **`dotfiles/emacs/.spacemacs`** — `tmrts/configure-ispell-word-lookup`, one commented defun holding the whole policy, called from `dotspacemacs/user-init` (which owns the timing: per link 1 the option must flip before the first text-mode buffer exists):\n  1. `setopt text-mode-ispell-word-completion nil` — dictionary popups on every idle cycle are noise, each an eager synchronous subprocess; disabling is also upstream corfu's recommendation. (`setopt` because the option's `:set` function also updates `text-mode-map`: for nil it removes the `C-M-i` binding; `ispell-complete-word` stays reachable via `M-x`.)\n  2. Once ispell loads, point `ispell-alternate-dictionary` at a readable `$WORDLIST` — deliberate lookups then serve the system word list instead of erroring. Resolution defers to ispell load time because Spacemacs imports the session environment (`~/.spacemacs.env`, `dotspacemacs/user-env`) only *after* user-init (`core-spacemacs.el:198` vs `:266`). Machines without `$WORDLIST` keep ispell's stock probing.\n- **`dotfiles/emacs/.emacs.layers/coding/packages.el`** — removes the `\"echo\"` hack from `coding/init-corfu`; with it gone, `ispell-program-name` discovery finds aspell again and flyspell works.\n\nNo NixOS change needed — `common.nix` already ships the word list; Emacs just never looked at it.\n\n## Process and divergences\n\n- Red first: reproduced the exact error in batch Emacs 30.1 (empty `/usr/share/dict` in the devenv mirrors NixOS), with the old hack active — proving it inert — in both `text-mode` and `org-mode` buffers.\n- The fix passed through two review-driven shapes — a layer-local module with an ERT suite (CIA-8 test-reachability blocker), then a reified user-init bootstrap helper (CIA-7.2 duplication finding) — before owner feedback set the abstraction level: a dedicated package for a two-setting policy is not worth its reader/maintenance cost. `b6c3520` collapses everything back into the `.spacemacs` defun; the module's test suite left with it (`.spacemacs` configuration carries no harness coverage in this repo, matching precedent — the executable verification below stands in).\n- Every shape was held to the same outcome assertions in batch Emacs, with and without `$WORDLIST`: no ispell capf registered in text/org buffers, prose completion never signals, `$WORDLIST` feeds deliberate lookup once ispell loads, absent `$WORDLIST` preserves stock discovery.\n- Test-suite parity: `./run-tests.sh` at baseline — 6 pass / 2 fail, the two `ai/` failures (`cognition-test.el`, `trace-labels-test.el`) failing identically on a clean checkout and untouched by this diff.\n\n## Out of scope, for the record\n\n- The `org-element--cache-sync: Invalid search bound (wrong side of point)` line in the original report is a separate org-mode cache defect that co-fires on a timer while editing; it is not caused by ispell/corfu. If it persists, `M-x org-element-cache-reset` in the affected buffer is the usual remedy; recurring cases are an org bug to chase independently.\n- `technical-writing/packages.el:47` disables a jupyter-repl company backend citing \"corfu errors\" (2025-10-03) — different mode (not text-derived), likely unrelated; left alone, possibly worth revisiting.\n\nhttps://claude.ai/code/session_01JZe11gDQKLyAGbAgWpnvPg",
+   "sha256_16": "f52b9400cac49e3e",
+   "mono_title": false,
+   "trusted": true,
+   "labels": [
+    "okay (round 1, item r1-34 = its opening excerpt)",
+    "direct praise for the whole body: \"#296 pr body is very well written. I want the commit messages to be written like this\""
+   ],
+   "provenance": {
+    "corpus_record": "orch-0001",
+    "source": "github.com/tmrtx/mono-repo/pull/296 body, fetched verbatim with `gh pr view 296 --json body` on 2026-08-21",
+    "payloads": [
+     "r1-2026-08-21g (6ceeff55c6aed4a2) item r1-34 carried only the opening 1245 characters; the excavation record orch-0001 was itself truncated by the gh capture, so the live body is the full text"
+    ],
+    "presentation": "markdown pull-request description, \"# Walkthrough\" title",
+    "why_trusted": "the mission names the r1-34 FULL text as part of the floor; the label attaches to the opening and the praise quote to the whole body (ROUND2-ANALYSIS.md E.3 presentation note)"
+   }
+  }
+ ],
+ "okay_set_single_measurement": [
+  {
+   "id": "r1-25",
+   "text": "feat[mve]: admit symbols after 30 days of history instead of 60\n\n[PROBLEM]\nmin_symbol_maturity=60 withheld a symbol's first 60 days from the cross-sectional\nranking pool, and therefore from universe_days, and therefore from the sample. It\nwas set on the assumption that early-life data is unreliable. That assumption was\nnever tested, and it costs setups: six resolved trades sit in the 31-60 day band\nand were being discarded.\n\n[CAUSE]\nmin_symbol_maturity appears in exactly one place — the eligibility mask in\ncompute_membership. It never reaches process_symbol, so it is a pure\ndays-since-listing cut applied to trades after the fact, not a guard on how they\nwere computed.\n\nThe guard it was standing in for already exists, upstream, in the indicators:\n\n  - range.2w is NaN until 14 days of bars accumulate, and detect_capitulations\n    tests `confirm(range.2w).fillna(0) > min_price_range` — so it cannot fire.\n  - r:adr.31d is built with min_periods=1, so during a symbol's first month it\n    averages that symbol's launch days, when ranges are widest. That inflates the\n    denominator of move_over_adr = log(max_high/first_open) / r:adr.31d and pushes\n    it under its 0.5 threshold.\n\nEmpirically this is decisive: across a {0, 15, 30, 45, 60} sweep, no trade anywhere\nlands earlier than 35 days since listing — not even at maturity=0. Below ~30 days\nthe gate is redundant with the indicator warmup. Above it, the gate was buying\nnothing and paying six setups for it.\n[...]",
+   "sha256_16": "8fc51b76291398ad",
+   "mono_title": true,
+   "trusted": false,
+   "labels": [
+    "okay (round 1)"
+   ],
+   "provenance": {
+    "corpus_record": "jrnl-0006",
+    "why_untrusted": "commit-message excerpt rated okay once, not repeated",
+    "presentation": "commit message (excerpt)"
+   }
+  },
+  {
+   "id": "r1-31",
+   "text": "QUESTION: Plain TLDR: your commit protocol requires steering-text commits (skills, CLAUDE.md, prompts) to carry a measured \"Token diff: +X/-Y\" line, computed by token_diff.py via Anthropic's count_tokens API. Another session today provisioned a dedicated key for it (~/.secrets → ANTHROPIC_TOKEN_DIFF_KEY) and left a memory with two traps: (1) if the session exports ANTHROPIC_BASE_URL for your local LLM proxy, counting silently goes there instead of the real API; (2) when the script prints \"Token diff: unavailable (reason)\", paraphrasing that line hides the fix (happened on PR#353). Eliminate the memory by hardening the script + one skill line?\n[...]",
+   "sha256_16": "a1afa43baff4c07d",
+   "mono_title": false,
+   "trusted": false,
+   "labels": [
+    "okay (round 1)"
+   ],
+   "provenance": {
+    "corpus_record": "lf-0041",
+    "why_untrusted": "question from an agent rated okay once, not repeated",
+    "presentation": "question asked by an agent (excerpt)"
+   }
+  },
+  {
+   "id": "r1-41",
+   "text": "feat[dotfiles][bash]: alias for spawning a tmuxless terminal",
+   "sha256_16": "eca3deb924f268e8",
+   "mono_title": true,
+   "trusted": false,
+   "labels": [
+    "okay (round 1)"
+   ],
+   "provenance": {
+    "corpus_record": "random:mono-repo:52f8c7a1",
+    "why_untrusted": "seven-word commit title rated okay once, not repeated",
+    "presentation": "commit message"
+   }
+  },
+  {
+   "id": "r1-42",
+   "text": "feat[emacs][agenda]: hand the clock back after friction and break captures\n\n[PROBLEM]\nFriction and break entries interrupt a clocked task.  With :clock-keep t\ntheir capture leaves the clock running on the new entry, so after every\nfriction or break the interrupted task's clock must be restarted by hand\n-- and is forgotten in practice, losing its time to the journal entry.\n\n[CAUSE]\nWhen these templates were introduced, the clock hand-back behavior was\nlocked to the fast journal capture key, so the closest available\napproximation was to keep the clock on the captured entry.\n\n[CHANGE]\nDeclare :clock-in t :clock-keep nil :resume-clock t on both templates\n(the same lifecycle the fast journal capture uses): the entry is clocked\nwhile being written, and on finalize the clock returns to whatever was\nrunning when the interruption happened.  Verified end-to-end in a batch\nsession: during a friction capture the clock sits on the friction entry,\nafter finalize it is back on the interrupted task, and the entry retains\nits closed CLOCK span.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01YLEErQsx6XaFphTzzhc9e1",
+   "sha256_16": "15bfaff6d094e56a",
+   "mono_title": true,
+   "trusted": false,
+   "labels": [
+    "okay (round 1) -> bad (round 2, item r2-04)"
+   ],
+   "provenance": {
+    "corpus_record": "random:mono-repo:92657e55",
+    "why_untrusted": "REMOVED from the floor: flipped okay -> bad on a byte-identical repeat (r2-04)",
+    "presentation": "commit message"
+   }
+  }
+ ],
+ "bad_set": {
+  "note": "The 30 round-1 items the user labelled bad are NOT copied here: they are the user's private prose and the gate never needs them. The validation harness reads them from the initiative payload when it is present and prints fire rates as descriptive context only; the rates measured on 2026-08-21 are recorded in the generated constants block of plugins/harness/hooks/writing_guard_detectors.py.",
+  "path": "/home/tmrts/workspace/mono-repo/.claude/worktrees/writing-guard/scratch/2026-08-21-writing-guard/curation/round1-items.json",
+  "labels": "/home/tmrts/workspace/mono-repo/.claude/worktrees/writing-guard/scratch/2026-08-21-writing-guard/curation/round1-labels.json",
+  "payload": "r1-2026-08-21g (6ceeff55c6aed4a2)"
+ }
+}
