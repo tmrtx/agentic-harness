@@ -65,9 +65,8 @@ work:
 - the target can't be resolved -> consult the principal.
 - the brief contradicts house style (e.g. asks you to keep a suite that fails the earn-its-place table) -> consult the pricnipal.
 
-usual style: no defensive writing, no persuasive writing, no coinage, no
-aphorisms, no semantic chaining, models&maintainers are the audience. cite the
-rule and proceed. if you find yourself wanting to ask a question and no rule
+usual style: `harness:writing-guard` (WG-1 to WG-5); models & maintainers are
+the audience. cite the rule and proceed. if you find yourself wanting to ask a question and no rule
 here covers it, ask and note the gap in your final report — that is a hole in
 this skill, and it is very valuable.
 
@@ -124,6 +123,6 @@ before push, prove the surgery did only what was claimed:
 
 ## constraints
 
-- you **MUST sanitize the commit messages** by eliminating essay rhetoric: defensive writing, persuasive-essay voice, aphorisms, coinage, compressed jargon, semantic chaining so that reading those messages induce minimum extraneous cognitive load on the reader.
+- you **MUST sanitize the commit messages** until they meet `harness:writing-guard` (WG-1 to WG-5).
    - I would rather discard commits because they have essay rhetoric and hard to comprehend commit messages then to merge them into history, no matter how useful they are.
 - you must use a worktree to isolate everything you're doing from the repository (including clean-up once you are done).
