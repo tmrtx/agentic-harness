@@ -18,10 +18,10 @@ The reader arrives cold, without your session, and stops at the first defect: *"
 
 2. **WG-2 Openings Say Who Does What**
    - The first clause names who is doing what, and to which part — in the opening, the title, and under every heading.
-   - He stops at the first defect, so an opening defect ends the read: across four commit messages he marked the title and the first line under each heading, 14 of 16 marks, nothing in between.
+   - He stops at the first defect, so an opening defect ends the read: across four commit messages — two source texts, one of them rewritten in three registers — he marked the title and the first line under each heading, 14 of 16 marks, nothing in between.
 
 3. **WG-3 Point Before Qualification**
-   - Nothing abstract stands between a sentence's start and its point, anywhere: no "The result: ...", no fronted participial clause.
+   - Nothing abstract stands between a sentence's start and its point, anywhere: no "The result: ...".
    - *"I've read 6 words, yet I have no idea what the sentence is about ... I'll have to find the key details by reading and then I have to re-read it with the key details in mind."*
 
 4. **WG-4 No Contrast in a Title**
@@ -35,6 +35,8 @@ The reader arrives cold, without your session, and stops at the first defect: *"
 Artifacts additionally follow `artifact-reader-contract` for page design.
 
 ## The one text rated good (1 of 50 answered)
+
+It was authored as a pass-bar rewrite for labeling round 2 (corpus `auth-0006`) rather than drawn from history, so the figures inside it illustrate the register and measure no real file.
 
 > I went through the Langfuse observations for 2026-07-27 to 2026-08-13: 139 artifact publications across 35 sessions, and the 202 user turns that followed them. About 25 of those turns asked for a correction, spread over roughly 10 sessions.
 >
