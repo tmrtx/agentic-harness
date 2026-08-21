@@ -50,6 +50,18 @@ CORPUS = os.path.join(HERE, 'writing-guard-corpus.json')
 # The 30 round-1 items the user labelled bad are the user's own prose and stay
 # in the initiative tree; this harness reads them when that tree is present and
 # says so plainly when it is not.
+#
+# Why this is not repointed at the committed corpus, which carries the same two
+# filenames under corpus/writing-guard/labels/: one of the 30 is medical
+# guidance about the user's own condition and the corpus withholds its text on
+# purpose. Reading the bad set from there yields 30 items with one of them
+# blank, and the rejected-side rates move - colon_opener falls from 1 of 30 to
+# 0 of 30, and the two whole-window counts each drop by one. Those numbers are
+# descriptive and gate nothing, so a quiet change to them would be a quiet
+# falsehood about a corpus the reader can no longer check. The rates below are
+# therefore reproducible only where the unredacted payload lives; the tier that
+# may block is decided by the accepted set alone, which is vendored beside this
+# file and reproduces anywhere.
 BAD_SET_ROOT = ('/home/tmrts/workspace/mono-repo/.claude/worktrees/'
                 'writing-guard/scratch/2026-08-21-writing-guard/curation')
 

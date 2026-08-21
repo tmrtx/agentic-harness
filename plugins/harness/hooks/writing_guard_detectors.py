@@ -7,7 +7,7 @@ WHERE THESE MECHANISMS COME FROM
 --------------------------------
 Two pre-registered labeling rounds (51 answered items, 2026-08-21) produced
 three mechanisms in the user's own words, recorded in the initiative's
-`sweep/ROUND1-READOUT.md` and validated at n=1 in `sweep/ROUND2-ANALYSIS.md`:
+mono-repo `corpus/writing-guard/labels/ROUND1-READOUT.md` and validated at n=1 in `labels/ROUND2-ANALYSIS.md`:
 
   opening_referent      first lines that do not establish who, what or where
                         ("what instance? what 'still'? 'returning' to what?")
