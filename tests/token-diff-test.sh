@@ -145,6 +145,58 @@ out="$(cd "$R" && python3 "$SCRIPT" --bogus-flag 2>/dev/null)"; rc=$?
 check_rc "bad usage exits 1" 1 "$rc"
 [ -z "$out" ] && echo "PASS: bad usage prints no line" || { echo "FAIL: bad usage printed: $out"; fails=$((fails+1)); }
 
+# --- named paths resolve to the repository that OWNS them ---------------------
+# The corpus and the measuring session routinely live in different repos
+# (self-consumption: a session in a consumer repo edits the plugin repo's
+# steering text), so a named file must be measured against ITS repo's
+# HEAD -> index, wherever the script is invoked from.
+# Second fixture repo. Committed -> staged, word counts in parentheses:
+#   skills/b/s1.md modified (2 -> 5): delta +3
+#   skills/b/s2.md deleted  (2 -> 0): delta -1 against the one-word sentinel
+#   skills/a/f1.md committed clean - same relpath as repo 1's f1.md (a
+#     consumer repo mirrors the plugin's layout), for the spanning case
+R2="$TMP/repo2"
+git init -q "$R2"
+g2() { git -C "$R2" -c user.email=t@t -c user.name=t "$@"; }
+mkdir -p "$R2/skills/b" "$R2/skills/a"
+printf 'm n' > "$R2/skills/b/s1.md"
+printf 'x y' > "$R2/skills/b/s2.md"
+printf 'consumer copy' > "$R2/skills/a/f1.md"
+g2 add .
+g2 commit -qm base
+printf 'm n o p q' > "$R2/skills/b/s1.md"
+g2 add .
+g2 rm -q skills/b/s2.md
+
+# 10. absolute paths into another repo measure that repo's staged diff; the
+#     deleted file exercises owning-repo discovery with nothing left on disk
+out="$(cd "$R" && python3 "$SCRIPT" "$R2/skills/b/s1.md" "$R2/skills/b/s2.md" 2>/dev/null)"; rc=$?
+check_line "absolute paths measure the owning repo" "Token diff: +3/-1 (net +2, claude-opus-5)" "$out"
+check_rc "absolute cross-repo paths exit 0" 0 "$rc"
+
+# 11. a relative path from a cwd that is NOT a work tree still resolves to
+#     the owning repo - named paths carry their own repo, cwd gates nothing
+out="$(cd "$TMP" && python3 "$SCRIPT" repo2/skills/b/s1.md 2>/dev/null)"; rc=$?
+check_line "relative path from non-repo cwd resolves" "Token diff: +3/-0 (net +3, claude-opus-5)" "$out"
+check_rc "non-repo cwd with a named path exits 0" 0 "$rc"
+
+# 12. named paths spanning two repositories abort, and the reason names both
+#     roots: each repo has its own comparison sides, so one summed line would
+#     describe neither commit. The two paths share a relpath (skills/a/f1.md
+#     exists in both repos) - the shape a lost guard would silently measure
+#     as one repo's file counted twice, at exit 0
+RR="$(cd "$R" && pwd -P)"; RR2="$(cd "$R2" && pwd -P)"
+out="$(cd "$TMP" && python3 "$SCRIPT" "$R/skills/a/f1.md" "$R2/skills/a/f1.md" 2>/dev/null)"; rc=$?
+check_line "paths spanning repos abort naming both roots" "Token diff: unavailable (named paths span repositories: $RR vs $RR2 - one line measures one commit in one repo)" "$out"
+check_rc "paths spanning repos exit 2" 2 "$rc"
+
+# 13. the documented repo-root-relative reading survives: from a SUBDIR of
+#     the repo, a root-relative path that names nothing on disk from cwd
+#     still measures against the cwd repo's root
+out="$(cd "$R/skills" && python3 "$SCRIPT" --base HEAD^ --target HEAD skills/a/f1.md 2>/dev/null)"; rc=$?
+check_line "root-relative from a subdir still measures" "Token diff: +2/-0 (net +2, claude-opus-5)" "$out"
+check_rc "root-relative from a subdir exits 0" 0 "$rc"
+
 echo "---"
 [ "$fails" -eq 0 ] && echo "ALL PASS" || echo "$fails FAILURE(S)"
 exit "$fails"

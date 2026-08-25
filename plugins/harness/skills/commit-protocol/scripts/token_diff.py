@@ -6,13 +6,23 @@ token-count endpoint (POST {base_url}/v1/messages/count_tokens, GA, free,
 rate-limited separately from message creation) and prints the
 `Token diff:` line whose format the commit-protocol SKILL.md defines.
 
-File selection: positional paths (repo-root-relative) name the files;
-with none given, the set derives from the diff itself, filtered by
-STEERING_RE below - the single home of the steering-path pattern (the
-commit-shape gate imports it). Derivation makes a recorded figure
-re-derivable without knowing what the author typed. A named path absent
-on both sides aborts to `unavailable`: a wrong list must not read as a
+File selection: positional paths name the files; with none given, the
+set derives from the cwd repo's diff itself, filtered by STEERING_RE
+below - the single home of the steering-path pattern (the commit-shape
+gate imports it). Derivation makes a recorded figure re-derivable
+without knowing what the author typed. A named path absent on both
+sides aborts to `unavailable`: a wrong list must not read as a
 measured zero.
+
+Named paths are measured against the repository that OWNS them, not the
+cwd's: the corpus and the measuring session routinely live in different
+repositories (this plugin is self-consumed - a session working in a
+consumer repo is exactly the one that discovers a steering edit), so an
+absolute path, or a relative one that names a file on disk, resolves to
+its own repo's HEAD -> index. A relative path naming nothing on disk
+keeps the documented repo-root-relative reading against the cwd repo
+(deleted files, historical measures). One invocation measures one repo:
+paths spanning two abort - half a figure must not read as the whole.
 
 Comparison sides default to HEAD -> index (the commit being composed).
 `--base`/`--target` take any revision, so a recorded figure re-derives
@@ -74,20 +84,56 @@ class Unavailable(Exception):
     """Counting cannot proceed; degrade to the `unavailable` line."""
 
 
-def git_blob(spec):
-    """Content of `git show <spec>`, or None when the path is absent there."""
-    r = subprocess.run(["git", "show", spec], capture_output=True)
+def git_blob(repo, spec):
+    """Content of `git show <spec>` in REPO, or None when absent there."""
+    r = subprocess.run(["git", "-C", repo, "show", spec], capture_output=True)
     return r.stdout.decode("utf-8", "replace") if r.returncode == 0 else None
 
 
-def derive_paths(base, target):
+def derive_paths(repo, base, target):
     """Steering files changed between the comparison sides, repo-relative."""
-    args = (["git", "diff", "--name-only", base, target] if target
-            else ["git", "diff", "--name-only", "--cached", base])
+    args = (["git", "-C", repo, "diff", "--name-only", base, target] if target
+            else ["git", "-C", repo, "diff", "--name-only", "--cached", base])
     r = subprocess.run(args, capture_output=True, text=True)
     if r.returncode != 0:
         raise Unavailable("git diff failed: %s" % r.stderr.strip())
     return [p for p in r.stdout.splitlines() if p and re.search(STEERING_RE, p)]
+
+
+def repo_root(start):
+    """Toplevel of the work tree containing directory START, or None."""
+    r = subprocess.run(["git", "-C", start, "rev-parse", "--show-toplevel"],
+                       capture_output=True, text=True)
+    return os.path.realpath(r.stdout.strip()) if r.returncode == 0 else None
+
+
+def resolve_named(path, cwd_root):
+    """A named PATH as (owning-repo root, repo-relative path).
+
+    Filesystem-true resolution first - an absolute path, or a relative
+    one that names something on disk, belongs to the repo that owns it
+    on disk, wherever the script runs (a staged deletion resolves
+    through its nearest existing ancestor). A relative path naming
+    nothing on disk falls back to the documented repo-root-relative
+    reading against the cwd repo, so deleted files and historical
+    measures keep working from inside their repo."""
+    fs = os.path.realpath(path)
+    if os.path.isabs(path) or os.path.lexists(path):
+        probe = fs if os.path.isdir(fs) else (os.path.dirname(fs) or ".")
+        while not os.path.isdir(probe):
+            parent = os.path.dirname(probe)
+            if parent == probe:
+                break
+            probe = parent
+        root = repo_root(probe)
+        if not root or not (fs == root or fs.startswith(root + os.sep)):
+            raise Unavailable("path is outside any git work tree: %s" % path)
+        return root, os.path.relpath(fs, root)
+    if cwd_root is None:
+        raise Unavailable(
+            "relative path %s names nothing on disk and the cwd is not a "
+            "work tree - run from the repository that owns it" % path)
+    return cwd_root, path
 
 
 class Counter:
@@ -148,9 +194,10 @@ def main():
                              "files in the diff matching STEERING_RE")
     args = parser.parse_args()
 
-    inside = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
-                            capture_output=True)
-    if inside.returncode != 0:
+    cwd_root = repo_root(".")
+    # Deriving the file set needs a repo to diff, and only the cwd names
+    # one; named paths carry their own repo, so the cwd gates nothing.
+    if not args.paths and cwd_root is None:
         print("token_diff.py: not inside a git work tree", file=sys.stderr)
         return 1
 
@@ -165,13 +212,23 @@ def main():
     )
     added = removed = 0
     try:
-        paths = args.paths or derive_paths(args.base, args.target)
+        if args.paths:
+            resolved = [resolve_named(p, cwd_root) for p in args.paths]
+            roots = sorted(set(root for root, _ in resolved))
+            if len(roots) > 1:
+                raise Unavailable(
+                    "named paths span repositories: %s - one line measures "
+                    "one commit in one repo" % " vs ".join(roots))
+            repo, paths = roots[0], [rel for _, rel in resolved]
+        else:
+            repo, paths = cwd_root, derive_paths(cwd_root, args.base,
+                                                 args.target)
         if not paths:
             raise Unavailable("no steering-pattern files in the diff")
         for path in paths:
-            before = git_blob("%s:%s" % (args.base, path))
+            before = git_blob(repo, "%s:%s" % (args.base, path))
             target_spec = "%s:%s" % (args.target, path) if args.target else ":%s" % path
-            after = git_blob(target_spec)
+            after = git_blob(repo, target_spec)
             if not before and not after:
                 raise Unavailable("path not found on either side: %s" % path)
             delta = (counter.count(after if after else SENTINEL)
