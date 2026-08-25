@@ -12,7 +12,7 @@ Its message must give teleological, causal, and practical understanding of the c
 1. **Pre-commit gate:** All tests must pass before committing.
 2. Commit Title Format: <type>[OPTIONAL:<silo>][<component>]: <action-verb> <what-changed>
 3. Commit Body Structure: Commit message body should lead to reviewers gaining a causal, teleological and practical understanding of the commit:
-   1. [PROBLEM] - Problem Statement: Formulate the problem that this commit will address (content after `[PROBLEM]` line).
+   1. [PROBLEM] - Problem Formulation: the problem that the commit contents eliminate, it also contains specific instance of the encountered problem that catalyzed this commit (content after `[PROBLEM]` line).
    2. [ROOT-CAUSE] - Root-Cause Analysis: Elaborate the causal mechanics that created this problem (content after `[ROOT-CAUSE]` line).
    3. [CHANGE] - The Change: Describe your approach and justify this approach over alternatives considered (content after `[CHANGE]` line).
       - Steering-text commits close this section with a token-cost line. Steering text is anything loaded into an agent's or model's context to direct behavior: CLAUDE.md, skills, agent definitions, commands, prompts. Context is the budget such text spends in every future session; the line puts that recurring cost next to the content it buys, so the reviewer weighs both at once. Compute it with this skill's `scripts/token_diff.py` - run with no arguments it measures the staged steering files; pass paths to widen or narrow the set - which counts the diff through the Anthropic count_tokens endpoint (counts are model-specific estimates, so the line names the model): `Token diff: +<added>/-<removed> (net <n>, <model>)`. When counting is impossible - no credentials, no network - record `Token diff: unavailable (<reason>)`: an unmeasured cost stays visible where a silent omission would hide it. Paste the script's output line verbatim - a paraphrase obscures the actionable reason when counting degrades.
@@ -22,6 +22,6 @@ Its message must give teleological, causal, and practical understanding of the c
 Writing instructions — the reader is a maintainer or model under load; structure serves their eyes, not the author's:
 - BLUF; one idea per sentence; plain statement before term of art; active voice.
 - Bullets for parallel facts (mechanics, deletions, alternatives, mechanism items); blank lines between idea groups. Section labels alone are not structure.
-- Put detail where the reader's uncertainty is: a self-evident diff earns a compressed [CHANGE]; a non-obvious motivation earns an expanded [PROBLEM].
+- Put detail with reader in mind: a self-evident diff means tiny [CHANGE]; since [PROBLEM] will contain information non-recoverable by the commit content, it deserves more space.
 - Ground every statement in the commit itself: no review-round narration, no PR/issue/governance-code chaining; state judgments in problem terms.
-- Wrap near 72 columns; one abstraction level per sentence.
+- Wrap near 72 columns; use newlines to break up paragraphs and have visual structure.
