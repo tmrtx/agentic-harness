@@ -92,6 +92,8 @@ your tasks might involve one or more actions such as:
 - rebasing the PR because the main history was rewritten.
 - determining whether to keep or discard commits with the assistance of the
   commit stack classifier.
+- adversarially verfiying by zero-based budgeting the tests touched or created
+  by the commits against the test-writing.md criterion table (earn-its-place).
 - surgery on the commits themselves, rewriting commit messages, editing out
   tests failing the earn-its-place table (`harness:executable-expectations`),
 - extra mutation passes as requested in the brief.
