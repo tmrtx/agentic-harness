@@ -22,6 +22,7 @@ Code review is cognitively expensive. A walkthrough reduces the burden by pre-or
 - The walkthrough must be **hermetic** - it stands alone for a reader with zero prior context: every motivation, decision, and number lives IN the text. External links are allowed only for genuine dependencies (e.g. the repo a PR consumes) or out-of-scope tracking issues - never as required reading
 - The walkthrough should be **navigable** - file paths and line numbers enable jumping to specific changes
 - The walkthrough should be **honest** - if something didn't go as planned, say so
+- The walkthrough embeds visuals, logs, artifacts **inline** via release assets: blob/raw links don't render on private repos, and evidence shouldn't ride the tree — upload to a prerelease `pr<N>-<>`, embed its `releases/download` URLs, caption each (for visuals); mermaid renders natively (mono-repo PR #369)
 
 ## Anti-patterns
 - Writing documentation that requires reading all the code to understand
