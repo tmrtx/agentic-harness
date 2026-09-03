@@ -75,9 +75,11 @@ API_KEY_ENV = "ANTHROPIC_TOKEN_DIFF_KEY"
 # agent/model context. The commit-protocol skill's intent-based definition
 # governs beyond it; the commit-shape gate imports this constant rather
 # than keeping a second copy.
-STEERING_RE = (r"(^|/)(CLAUDE|AGENTS)\.md$"
-               r"|(^|/)(skills|agents|commands)/.*\.md$"
-               r"|(^|/)\.claude/.*\.md$")
+STEERING_RE = (
+    r"(^|/)(CLAUDE|AGENTS)\.md$"
+    r"|(^|/)(skills|agents|commands)/.*\.md$"
+    r"|(^|/)\.claude/.*\.md$"
+)
 
 
 class Unavailable(Exception):
@@ -92,8 +94,11 @@ def git_blob(repo, spec):
 
 def derive_paths(repo, base, target):
     """Steering files changed between the comparison sides, repo-relative."""
-    args = (["git", "-C", repo, "diff", "--name-only", base, target] if target
-            else ["git", "-C", repo, "diff", "--name-only", "--cached", base])
+    args = (
+        ["git", "-C", repo, "diff", "--name-only", base, target]
+        if target
+        else ["git", "-C", repo, "diff", "--name-only", "--cached", base]
+    )
     r = subprocess.run(args, capture_output=True, text=True)
     if r.returncode != 0:
         raise Unavailable("git diff failed: %s" % r.stderr.strip())
@@ -102,8 +107,11 @@ def derive_paths(repo, base, target):
 
 def repo_root(start):
     """Toplevel of the work tree containing directory START, or None."""
-    r = subprocess.run(["git", "-C", start, "rev-parse", "--show-toplevel"],
-                       capture_output=True, text=True)
+    r = subprocess.run(
+        ["git", "-C", start, "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+    )
     return os.path.realpath(r.stdout.strip()) if r.returncode == 0 else None
 
 
@@ -132,7 +140,8 @@ def resolve_named(path, cwd_root):
     if cwd_root is None:
         raise Unavailable(
             "relative path %s names nothing on disk and the cwd is not a "
-            "work tree - run from the repository that owns it" % path)
+            "work tree - run from the repository that owns it" % path
+        )
     return cwd_root, path
 
 
@@ -146,12 +155,16 @@ class Counter:
     def count(self, text):
         if text in self.memo:
             return self.memo[text]
-        body = json.dumps({
-            "model": self.model,
-            "messages": [{"role": "user", "content": text}],
-        }).encode()
+        body = json.dumps(
+            {
+                "model": self.model,
+                "messages": [{"role": "user", "content": text}],
+            }
+        ).encode()
         req = urllib.request.Request(
-            self.url, data=body, method="POST",
+            self.url,
+            data=body,
+            method="POST",
             headers={
                 "content-type": "application/json",
                 "anthropic-version": API_VERSION,
@@ -183,15 +196,23 @@ def main():
     parser = Parser(
         description="Emit the commit protocol's `Token diff:` line for steering files.",
     )
-    parser.add_argument("--model",
-                        default=os.environ.get("ANTHROPIC_TOKEN_DIFF_MODEL", DEFAULT_MODEL))
-    parser.add_argument("--base", default="HEAD",
-                        help="revision for the before side (default: HEAD)")
-    parser.add_argument("--target", default=None,
-                        help="revision for the after side (default: the index)")
-    parser.add_argument("paths", nargs="*",
-                        help="steering files, repo-root-relative; default: "
-                             "files in the diff matching STEERING_RE")
+    parser.add_argument(
+        "--model", default=os.environ.get("ANTHROPIC_TOKEN_DIFF_MODEL", DEFAULT_MODEL)
+    )
+    parser.add_argument(
+        "--base", default="HEAD", help="revision for the before side (default: HEAD)"
+    )
+    parser.add_argument(
+        "--target",
+        default=None,
+        help="revision for the after side (default: the index)",
+    )
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        help="steering files, repo-root-relative; default: "
+        "files in the diff matching STEERING_RE",
+    )
     args = parser.parse_args()
 
     cwd_root = repo_root(".")
@@ -207,7 +228,8 @@ def main():
         return 2
 
     counter = Counter(
-        args.model, {"x-api-key": key},
+        args.model,
+        {"x-api-key": key},
         os.environ.get("ANTHROPIC_TOKEN_DIFF_BASE_URL", "https://api.anthropic.com"),
     )
     added = removed = 0
@@ -218,11 +240,11 @@ def main():
             if len(roots) > 1:
                 raise Unavailable(
                     "named paths span repositories: %s - one line measures "
-                    "one commit in one repo" % " vs ".join(roots))
+                    "one commit in one repo" % " vs ".join(roots)
+                )
             repo, paths = roots[0], [rel for _, rel in resolved]
         else:
-            repo, paths = cwd_root, derive_paths(cwd_root, args.base,
-                                                 args.target)
+            repo, paths = cwd_root, derive_paths(cwd_root, args.base, args.target)
         if not paths:
             raise Unavailable("no steering-pattern files in the diff")
         for path in paths:
@@ -231,8 +253,9 @@ def main():
             after = git_blob(repo, target_spec)
             if not before and not after:
                 raise Unavailable("path not found on either side: %s" % path)
-            delta = (counter.count(after if after else SENTINEL)
-                     - counter.count(before if before else SENTINEL))
+            delta = counter.count(after if after else SENTINEL) - counter.count(
+                before if before else SENTINEL
+            )
             print("token_diff.py: %s %+d" % (path, delta), file=sys.stderr)
             added += max(delta, 0)
             removed += max(-delta, 0)
@@ -240,8 +263,10 @@ def main():
         print("Token diff: unavailable (%s)" % e)
         return 2
 
-    print("Token diff: +%d/-%d (net %+d, %s)" % (added, removed, added - removed,
-                                                 args.model))
+    print(
+        "Token diff: +%d/-%d (net %+d, %s)"
+        % (added, removed, added - removed, args.model)
+    )
     return 0
 
 
