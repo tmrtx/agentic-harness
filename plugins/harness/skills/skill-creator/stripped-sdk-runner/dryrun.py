@@ -157,7 +157,7 @@ def dry_run(
             "rounds": rounds,
         }
 
-    r1 = bare_runner.stream_round(body, halt=think.halt_native,
+    r1 = bare_runner.stream_round(body, sid, halt=think.halt_native,
                                   timeout=timeout)
     bad = think.bad_round(r1, think.THINK["name"])
     if bad:
@@ -183,7 +183,7 @@ def dry_run(
             messages=body["messages"] + think.acknowledged(r1["tool_calls"]),
             session_id=sid,
         )
-        r2 = bare_runner.stream_round(body2, halt=_probe_halt(),
+        r2 = bare_runner.stream_round(body2, sid, halt=_probe_halt(),
                                       timeout=timeout)
         rounds.append(r2)
         first = r2["tool_calls"][:1]  # only the first block is complete

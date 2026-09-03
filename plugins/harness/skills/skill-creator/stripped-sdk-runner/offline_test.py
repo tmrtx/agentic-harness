@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Offline behavior test: no network, no login — a local canned
 /v1/messages server plays the API. Covers what integration_test.py
-(live wire parity against a fresh `claude -p`) cannot cheaply: response
-parsing, tool_calls, stream_round's halt lever, refusal surfacing,
-quota retry, the think-tool two-round transcript mechanics, and the
-dry run's stopped-at-reasoning mechanics.
+(the live probe matrix) cannot cheaply: response parsing, tool_calls,
+stream_round's halt lever, refusal surfacing, quota retry, billing
+attribution warnings, the think-tool two-round transcript mechanics,
+and the dry run's stopped-at-reasoning mechanics. It also freezes the
+minimal wire as an exhaustive set, which is the guard against dressing
+creeping back on.
 
 Run: python3 offline_test.py   (exit 0 = green)
 """
+import contextlib
+import io
 import json
 import os
 import subprocess
@@ -16,14 +20,12 @@ import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-# "No login" is part of this tier's contract: a fixture HOME stands in
-# for the CLI's files (bare_runner resolves them at import), and the
-# token env short-circuits the credentials read.
+# "No login" is part of this tier's contract: the token env
+# short-circuits the credentials read, and HOME points at an empty
+# fixture (bare_runner resolves ~/.claude/.credentials.json at import)
+# so nothing here can touch the real CLI files even by accident.
 _HOME = tempfile.mkdtemp(prefix="offline-home-")
 os.environ["HOME"] = _HOME
-with open(os.path.join(_HOME, ".claude.json"), "w") as _f:
-    json.dump({"userID": "offline-device",
-               "oauthAccount": {"accountUuid": "offline-account"}}, _f)
 os.environ["BARE_RUNNER_QUOTA_WAIT_S"] = "0"
 os.environ["ANTHROPIC_STRIPPED_SDK_RUNNER"] = "sk-ant-test-offline"
 KIT = os.path.dirname(os.path.abspath(__file__))
@@ -45,6 +47,17 @@ def check(name, ok, detail=""):
 REQS = []    # (body, headers) per request, in arrival order
 CANNED = []  # response queue: (status, events-list | error-dict)
 
+# Probed 2026-08-28 with an API key as the negative control: the two
+# rate-limit families partition cleanly — subscription traffic gets
+# anthropic-ratelimit-unified-* and no per-tier headers, API-key
+# traffic gets the per-tier limits and no unified ones. That is what
+# makes absence diagnostic, so both are modelled here.
+UNIFIED_SAMPLE = ["anthropic-ratelimit-unified-status",
+                  "anthropic-ratelimit-unified-5h-utilization"]
+PER_TIER_SAMPLE = ["anthropic-ratelimit-requests-remaining",
+                   "anthropic-ratelimit-tokens-remaining"]
+SEND_UNIFIED = [True]   # False => play an API-key-billed response
+
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -61,6 +74,16 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
+        # The real API answers subscription 200s with the unified
+        # rate-limit family, so the canned one must too — otherwise
+        # every test here trips the billing-attribution warning. Flip
+        # SEND_UNIFIED to play an API-key-billed response instead.
+        if status == 200 and SEND_UNIFIED[0]:
+            for k in UNIFIED_SAMPLE:
+                self.send_header(k, "allowed")
+        elif status == 200:
+            for k in PER_TIER_SAMPLE:
+                self.send_header(k, "1000")
         self.end_headers()
         try:
             self.wfile.write(data)
@@ -159,8 +182,31 @@ ROSTER = [
 ]
 
 
-def beta_header(headers):
-    return next(v for k, v in headers.items() if k.lower() == "anthropic-beta")
+# The minimal wire, frozen as an EXHAUSTIVE set. Subset assertions
+# ("authorization in headers") cannot see dressing creeping back, and
+# creeping back is the failure this tier exists to catch — every entry
+# below was either probed REQUIRED or is a deliberate, recorded
+# exception. integration_test.py holds the live half: that each
+# survivor breaks the call when removed.
+WIRE_HEADERS = {
+    "authorization",              # required: 401 without
+    "anthropic-version",          # required: 400 without
+    "content-type",               # not required (200 without); parity
+    "user-agent",                 # not required; kept by preference
+    "x-claude-code-session-id",   # not required; kept by preference
+    "content-length",             # HTTP
+    "host",                       # HTTP, added by http.client
+    "accept-encoding",            # HTTP, identity, added by http.client
+}
+# thinking is here because reasoning is ON by default — the one
+# behavioural default the runner keeps, by owner decision. max_tokens
+# because the API requires the field. Nothing else is injected.
+WIRE_BODY = {"model", "messages", "system", "max_tokens", "thinking",
+             "stream"}
+
+
+def header_names(headers):
+    return {k.lower() for k in headers}
 
 
 def main():
@@ -178,18 +224,95 @@ def main():
           and r["usage"].get("input_tokens") == 10
           and r["model"] == "claude-opus-5",
           "got %r" % {k: r[k] for k in ("text", "stop_reason", "status")})
-    body, _ = REQS[0]
+    body, headers = REQS[0]
     sys_texts = [b["text"] for b in body["system"]]
-    check("rollout: wire is floor + caller only",
-          sys_texts == [bare_runner.BILLING, SYS]
-          and body["messages"] == [{"role": "user", "content": [
+    # The founding contract: `claude -p` contaminates the user turn with
+    # a <system-reminder> and the model scores it as task signal. This
+    # runner must never do that.
+    check("user turn carries the caller's text and nothing else",
+          body["messages"] == [{"role": "user", "content": [
               {"type": "text", "text": USER}]}]
-          and body["tools"] == [] and "tool_choice" not in body
-          and body["stream"] is True
-          and "<system-reminder>" not in json.dumps(body)
-          and json.loads(body["metadata"]["user_id"])["session_id"]
-          == r["session_id"])
-    plain_betas = beta_header(REQS[0][1])
+          and "<system-reminder>" not in json.dumps(body))
+
+    # Position is the contract, not presence: a caller block ahead of
+    # the billing line costs a 429 indistinguishable from quota, which
+    # the runner would then sit in a retry loop over.
+    check("billing line leads the system prompt, caller's follows",
+          sys_texts == [bare_runner.BILLING, SYS])
+
+    # The minimal contract, asserted EXHAUSTIVELY. These two are the
+    # regression guard on the whole change: anything re-added to the
+    # wire — a beta, a stainless header, metadata, context_management
+    # — fails here rather than silently altering how the model answers.
+    check("wire: exactly the minimal header set, nothing more",
+          header_names(headers) == WIRE_HEADERS,
+          "extra=%s missing=%s"
+          % (sorted(header_names(headers) - WIRE_HEADERS),
+             sorted(WIRE_HEADERS - header_names(headers))))
+    check("wire: exactly the minimal body keys, nothing more",
+          set(body) == WIRE_BODY,
+          "extra=%s missing=%s" % (sorted(set(body) - WIRE_BODY),
+                                   sorted(WIRE_BODY - set(body))))
+    # Asserted BY VALUE, not against family_thinking() — comparing
+    # build_body's output to the function build_body calls would be
+    # f(x) == f(x) and catch nothing. What matters observably: the
+    # model reasons (owner decision), and display is "summarized",
+    # without which the server bills thinking tokens and streams no
+    # summary at all — a silent loss of the thing being paid for.
+    check("thinking is on by default, with the summary unmasked",
+          body["thinking"].get("type") != "disabled"
+          and body["thinking"].get("display") == "summarized",
+          "thinking=%r" % (body.get("thinking"),))
+    check("wire: session id header carries the returned id",
+          headers["X-Claude-Code-Session-Id"] == r["session_id"])
+
+    # -- billing attribution: a 200 that was not subscription-billed ----
+    # The runner's invariant is parity with an API-key call in
+    # everything BUT billing, so the one thing it must not do quietly is
+    # bill somewhere else. A 200 cannot see that; the rate-limit family
+    # can. Warning, never an exception — these header names are
+    # Anthropic's to change, and a rename must degrade to noise rather
+    # than break every rollout.
+    fresh()
+    CANNED.append((200, text_reply("billed")))
+    bare_runner._WARNED_UNBILLED[0] = False
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        bare_runner.rollout(work, USER)
+    check("billing: subscription 200 warns about nothing",
+          err.getvalue() == "", "stderr=%r" % err.getvalue()[:120])
+
+    fresh()
+    SEND_UNIFIED[0] = False
+    CANNED.append((200, text_reply("elsewhere")))
+    bare_runner._WARNED_UNBILLED[0] = False
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        r = bare_runner.rollout(work, USER)
+    SEND_UNIFIED[0] = True
+    warned = err.getvalue()
+    check("billing: 200 without unified headers warns, expected/got",
+          r["text"] == "elsewhere"          # non-fatal: the reply survives
+          and "expected" in warned and "got" in warned
+          and "anthropic-ratelimit-unified" in warned
+          and "anthropic-ratelimit-requests-remaining" in warned,
+          "stderr=%r" % warned[:160])
+
+    # Once per process: this is a configuration fault, not a per-request
+    # one, and a scored run must not drown in repeats of it.
+    fresh()
+    SEND_UNIFIED[0] = False
+    CANNED.append((200, text_reply("a")))
+    CANNED.append((200, text_reply("b")))
+    bare_runner._WARNED_UNBILLED[0] = False
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        bare_runner.rollout(work, USER)
+        bare_runner.rollout(work, USER)
+    SEND_UNIFIED[0] = True
+    check("billing: the warning is emitted once per process",
+          err.getvalue().count("expected") == 1,
+          "count=%d" % err.getvalue().count("expected"))
 
     # -- tools + forced tool_choice, input split across json deltas -----
     fresh()
@@ -202,21 +325,25 @@ def main():
                                "input": {"thoughts": "abc"}}]
           and r["text"] is None and r["stop_reason"] == "tool_use")
     body, headers = REQS[0]
-    check("rollout: tools + tool_choice on the wire",
-          body["tools"] == [TOOL] and body["tool_choice"] == FORCE)
-    check("rollout: betas untouched by tools",
-          beta_header(headers) == plain_betas)
+    # A feature adds the keys it owns and moves NOTHING else: the
+    # header set and the rest of the body are unchanged by tools.
+    check("tools go through verbatim and perturb nothing else",
+          body["tools"] == [TOOL] and body["tool_choice"] == FORCE
+          and header_names(headers) == WIRE_HEADERS
+          and set(body) == WIRE_BODY | {"tools", "tool_choice"},
+          "body=%s" % sorted(set(body)))
 
     # -- cache: caller block cached, billing bare, beta added -----------
     fresh()
     CANNED.append((200, text_reply("cached")))
     bare_runner.rollout(work, USER, cache=True)
     body, headers = REQS[0]
-    check("cache: caller block carries 1h, billing bare",
+    # Probed 2026-08-28: cache_control works with no beta header.
+    check("cache: caller block carries 1h, billing bare, no beta",
           "cache_control" not in body["system"][0]
           and body["system"][-1].get("cache_control")
           == {"type": "ephemeral", "ttl": "1h"}
-          and bare_runner.CACHE_BETA in beta_header(headers))
+          and header_names(headers) == WIRE_HEADERS)
 
     # -- rollout_with_retry: accept judges text; a rejected text retries
     #    once, a tool-only reply returns as-is without a wasted call ----
@@ -243,10 +370,13 @@ def main():
                          "error": {"type": "rate_limit_error"}}))
     CANNED.append((200, text_reply("after quota")))
     r = bare_runner.rollout(work, USER)
-    check("quota: 429 pauses then retries",
+    # attempts is the runner's own accounting, and the retry must carry
+    # identical headers and body.
+    check("quota: 429 pauses then retries, retry dressed the same",
           r["text"] == "after quota" and r["attempts"] == 2
-          and REQS[0][1]["X-Stainless-Retry-Count"] == "0"
-          and REQS[1][1]["X-Stainless-Retry-Count"] == "1")
+          and len(REQS) == 2
+          and header_names(REQS[0][1]) == header_names(REQS[1][1])
+          and REQS[0][0] == REQS[1][0])
 
     # -- stream_round: halt hangs up at the first thinking block --------
     fresh()
@@ -282,15 +412,14 @@ def main():
     b2, sid2 = bare_runner.build_body(SYS, None, "claude-opus-5", "xhigh",
                                       messages=history, session_id="sid-1")
     check("build_body: messages + session_id first-class",
-          b2["messages"] == history and sid2 == "sid-1"
-          and json.loads(b2["metadata"]["user_id"])["session_id"] == "sid-1")
+          b2["messages"] == history and sid2 == "sid-1")
 
     # -- think: the forced two-round scheme ------------------------
     fresh()
     CANNED.append((200, tool_reply("think",
                                    ['{"thoughts": "let me think"}'],
                                    tid="tu_r1", out=500)))
-    CANNED.append((200, tool_reply("write_answer", ['{"answer": "42"}'],
+    CANNED.append((200, tool_reply("output", ['{"output": "42"}'],
                                    tid="tu_r2", out=300)))
     res = think.run(SYS, USER)
     check("think: ok verdict, thoughts + answer",
@@ -301,10 +430,10 @@ def main():
     b1, b2 = REQS[0][0], REQS[1][0]
     check("think: both rounds forced, one session",
           b1["tool_choice"] == {"type": "tool", "name": "think"}
-          and b2["tool_choice"] == {"type": "tool", "name": "write_answer"}
+          and b2["tool_choice"] == {"type": "tool", "name": "output"}
           and b1["tools"] == b2["tools"]
-          and json.loads(b1["metadata"]["user_id"])["session_id"]
-          == json.loads(b2["metadata"]["user_id"])["session_id"])
+          and REQS[0][1]["X-Claude-Code-Session-Id"]
+          == REQS[1][1]["X-Claude-Code-Session-Id"])
     check("think: round 2 replays the tool transcript",
           b2["messages"] == b1["messages"] + [
               {"role": "assistant", "content": [
@@ -328,7 +457,7 @@ def main():
                      "input": {}, "caller": {"type": "direct"}}),
         ev_json(1, '{"thoughts": "PART TWO"}'), ev_bstop(1),
         ev_end("tool_use", 600)]))
-    CANNED.append((200, tool_reply("write_answer", ['{"answer": "done"}'])))
+    CANNED.append((200, tool_reply("output", ['{"output": "done"}'])))
     res = think.run(SYS, USER)
     r2_msgs = REQS[1][0]["messages"]
     check("think: parallel calls join, both replayed",
@@ -339,12 +468,12 @@ def main():
           == ["tu_a", "tu_b"],
           "thoughts=%r" % (res["thoughts"],))
 
-    # -- think: answer fields become write_answer's schema ---------
+    # -- think: answer fields become output's schema ---------------
     fresh()
     fields = ["premise", "answer"]
     CANNED.append((200, tool_reply("think", ['{"thoughts": "t"}'])))
     CANNED.append((200, tool_reply(
-        "write_answer", ['{"premise": "p", "answer": "a"}'])))
+        "output", ['{"premise": "p", "answer": "a"}'])))
     res = think.run(SYS, USER, answer_fields=fields)
     schema = REQS[1][0]["tools"][1]["input_schema"]
     check("think: answer_fields typed into the tool",
@@ -383,8 +512,8 @@ def main():
     check("think: transport failure surfaces",
           res["verdict"] == "http 500 (round 1)" and len(REQS) == 1)
 
-    fresh()  # forced think, but a write_answer call arrives
-    CANNED.append((200, tool_reply("write_answer", ['{"answer": "no"}'])))
+    fresh()  # forced think, but an output call arrives
+    CANNED.append((200, tool_reply("output", ['{"output": "no"}'])))
     res = think.run(SYS, USER)
     check("think: missing forced call surfaces",
           res["verdict"] == "stop tool_use, no think call (round 1)")
@@ -454,8 +583,8 @@ def main():
     check("dryrun probe: any-tool round rides the replayed session",
           b2["tool_choice"] == {"type": "any"}
           and b2["tools"] == b1["tools"]
-          and json.loads(b1["metadata"]["user_id"])["session_id"]
-          == json.loads(b2["metadata"]["user_id"])["session_id"]
+          and REQS[0][1]["X-Claude-Code-Session-Id"]
+          == REQS[1][1]["X-Claude-Code-Session-Id"]
           and b2["messages"] == b1["messages"] + [
               {"role": "assistant", "content": [
                   {"type": "tool_use", "id": "tu_d1", "name": "think",

@@ -1,16 +1,11 @@
-"""Lean capture proxy — the wire between bare_runner and wire_check.
+"""Capture proxy: relay Claude API traffic upstream byte-for-byte
+untouched, and write each JSON POST body to the capture dir as
+req-NNNN.json with a req-NNNN.headers.json sibling. It is a
+verification transport — proof of what the model saw — so it must not
+mutate the wire, and it carries nothing beyond the relay and the
+capture (no export, no timing marks, no rewriting).
 
-Distilled from the full cc-sniff proxy down to what a
-proof-of-what-the-model-saw transport needs: relay Claude CLI traffic
-to the API byte-for-byte untouched, and write each JSON POST body to
-the capture dir as req-NNNN.json (with a .headers.json sibling) —
-exactly the on-disk shape wire_check.py floor-checks. Everything else
-the full proxy carries (Langfuse export, SSE timing marks, artifact
-dedup, the thinking.display rewrite) is deliberately absent: a
-verification transport must not mutate the wire, and a smaller relay
-is easier to trust.
-
-Mechanics that earned their place live (inherited from cc-sniff):
+Mechanics:
 - Capture BEFORE forward: a call that dies upstream still leaves
   evidence of what was sent.
 - Relay the response line by line and flush each line: the CLI
@@ -18,21 +13,24 @@ Mechanics that earned their place live (inherited from cc-sniff):
 - Accept-Encoding forced to identity so the response can be re-chunked
   without decoding.
 - The capture counter seeds from the highest existing req-*.json
-  instead of restarting at zero, so a proxy restart (or a dir shared
-  with a full cc-sniff) never overwrites earlier captures. Reads still
-  go by MTIME windows (wire_check.snapshot), never filename order.
+  instead of restarting at zero, so a proxy restart (or a capture dir
+  shared with cc-sniff, whose layout this matches) never overwrites
+  earlier captures. Select captures by mtime window, never by
+  filename order.
 - A gzipped request body is stored decompressed so every capture stays
   json.load-able; the original bytes go upstream untouched.
+
+The headers file includes Authorization. Treat the capture dir as
+secret material and clear it when done.
 
 Run:
     python3 wire_capture.py [port]        # default 8899
     ANTHROPIC_BASE_URL=http://127.0.0.1:8899 <rollouts>
 
 Env:
-    WIRE_CAPTURE_DIR       capture dir — the SAME variable wire_check
-                           reads (default /tmp/cc-sniff/capture)
-    WIRE_CAPTURE_UPSTREAM  upstream host   (default api.anthropic.com)
-    WIRE_CAPTURE_SCHEME    https | http    (default https)
+    WIRE_CAPTURE_DIR       capture dir    (default /tmp/cc-sniff/capture)
+    WIRE_CAPTURE_UPSTREAM  upstream host  (default api.anthropic.com)
+    WIRE_CAPTURE_SCHEME    https | http   (default https)
 """
 import glob
 import gzip

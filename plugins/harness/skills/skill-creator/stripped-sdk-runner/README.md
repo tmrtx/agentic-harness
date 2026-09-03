@@ -1,198 +1,241 @@
-# Stripped SDK runner — bare model calls with a clean scored turn
+# Stripped SDK runner
 
-Direct `/v1/messages` submissions over the `claude` subscription
-login. Python stdlib only.
+A Python client for Claude's `/v1/messages` API. Requests are billed to
+the `claude` subscription rather than to an API key. It depends on the
+Python standard library only.
 
-WHY: `claude -p` is a perfectly good transport with one disqualifying
-flaw for scored rollouts — it injects a `<system-reminder>` block
-(userEmail, currentDate, "may or may not be relevant" context) into
-the USER TURN, and the model treats it as task-relevant signal. This
-runner submits the CLI's wire shape without that contamination:
-billing-header block and CLI headers in exact order and casing kept;
-the SDK identity line ("You are a Claude agent…") deliberately
-absent, because it is steering text and nothing but the caller's
-words may steer a scored rollout; the user turn carries your text
-and nothing else.
+## Why not `claude -p`
+
+`claude -p` inserts a `<system-reminder>` block into the user turn. The
+block carries the user's email, the current date, and a note that the
+content may or may not be relevant. The model reads that block as part
+of the task. If the answers are being scored, the reminder becomes part
+of what is scored. This runner sends the caller's system prompt and
+user text and nothing else.
+
+## What a request contains
+
+Each request carries only what the API requires for a subscription
+call:
+
+- an `Authorization` header with the subscription's OAuth token
+- an `anthropic-version` header
+- a billing line as the first block of the system prompt
+- `max_tokens`, supplied when the caller omits it
+
+Three headers are sent by choice rather than necessity: `Content-Type`,
+`User-Agent`, and `X-Claude-Code-Session-Id`. Everything else the CLI
+sends (beta flags, `X-Stainless-*` headers, account identity metadata,
+context management) was tested against the live API, found
+unnecessary, and removed. Each element that remains has a comment in
+`bare_runner.py` recording what happens when it is removed.
+
+When re-testing the request shape, use `claude-sonnet-5` or
+`claude-opus-5`. `claude-haiku-4-5` does not enforce the billing line,
+so a test against haiku alone concludes that the line is optional when
+every other model requires it. This mistake has been made before.
 
 ## bare_runner.py
-- Library: `rollout(system_file, user_text, model=, effort=,
-  max_tokens=, thinking=, cache=, output_format=, tools=,
-  tool_choice=, timeout=)` returns `{text, thinking, tool_calls,
-  model, stop_reason, usage, status, attempts, session_id, raw}`.
-  `rollout_with_retry(..., accept)` adds one retry under your reply
-  contract (accept judges text; a tool-only reply returns as-is). Model/effort default to BARE_RUNNER_MODEL /
-  BARE_RUNNER_EFFORT (claude-opus-5 / xhigh).
-- Reasoning is captured by default: the authored `thinking` carries
-  `display: "summarized"` — the one deliberate addition over the -p
-  wire, because the CLI omits the field and the server then BILLS
-  thinking tokens while never streaming the summary. The streamed
-  summary text returns as `thinking`; pass `thinking=False` for the
-  CLI's disabled shape (which also drops context_management, as the
-  CLI does — the clear_thinking strategy 400s without thinking), or
-  an explicit dict to control display yourself. Tiny adaptive bursts (tens of tokens) may stream no
-  summary even when unmasked — `usage.output_tokens_details`
-  disambiguates a skipped summary from disabled thinking.
-- CLI: `python3 bare_runner.py --system-prompt-file sys.txt "text"`
-  (user text from stdin when omitted) prints the result dict as
-  JSON; flags mirror the keyword arguments (`--cache`,
-  `--output-format '<json schema>'`, ...). Exits 0 iff a reply
-  arrived.
-- The wire differs per MODEL FAMILY (observed live from `-p`): the
-  4.5 family sends max_tokens 32000 with thinking {budget 31999,
-  enabled} at every effort; the 5 family (opus-5, fable-5, sonnet-5)
-  sends 64000, thinking {adaptive}, effort inside output_config, and
-  a longer beta list.
-- Options, all OFF by default: `cache=True` — the CLI's
-  prompt-caching shape (ephemeral 1h + extended-cache-ttl beta);
-  `output_format={json schema}` — structured outputs
-  (output_config.format + structured-outputs beta; the reply text is
-  the conforming JSON); `tools=[...]` / `tool_choice={...}` — on the
-  wire verbatim, tool calls back parsed in `tool_calls`. The beta
-  list tracks the features used, exactly as the CLI's does.
-- Multi-round: `build_body(..., messages=, session_id=)` builds one
-  round's body over a full transcript under one session id;
-  `stream_round(body, halt=)` sends it live — halt sees each
-  content_block_start and a truthy return hangs up on the spot
-  (stop_reason "halted"; a first-block hang-up costs 2–5 tokens, the
-  probe / abort lever). Streaming sends Accept-Encoding identity —
-  the one other deliberate wire exception, since line-at-a-time
-  reads cannot pass through stdlib gzip.
-- Auth is `ANTHROPIC_STRIPPED_SDK_RUNNER` when that variable is set,
-  otherwise the CLI's own files; identity always comes from those
-  files (`~/.claude/.credentials.json`, `~/.claude.json`), token
-  re-read per call. There is no ANTHROPIC_API_KEY path. Quota arrives as
-  HTTP 429/5xx — never scoreable text — and becomes a bounded pause
-  (BARE_RUNNER_QUOTA_WAIT_S / _QUOTA_MAX_WAITS).
-- Calls go to ANTHROPIC_BASE_URL when set, api.anthropic.com
-  otherwise.
+
+Sends one prompt and returns the reply.
+
+```python
+from bare_runner import rollout
+
+r = rollout("system.txt", "your question")
+r["text"]        # the reply text
+r["thinking"]    # the streamed reasoning summary, or None
+r["tool_calls"]  # tool_use blocks with parsed input
+r["usage"]       # token counts
+```
+
+The result also carries `model`, `stop_reason`, `status`, `attempts`,
+`session_id`, and `raw` (the error body of a non-200 response).
+
+From a shell:
+
+```
+python3 bare_runner.py --system-prompt-file sys.txt "your question"
+```
+
+The user text can also be piped on stdin. The CLI prints the result as
+JSON and exits 0 when a reply arrived.
+
+**Defaults.** The model is `claude-opus-5`, overridable with
+`BARE_RUNNER_MODEL` or `--model`. Reasoning is on by default because
+scored rollouts want it; pass `thinking=False` (`--no-thinking`) to
+disable it. Every other option is off unless requested:
+
+- `tools=` and `tool_choice=` for tool use
+- `output_format=` for a JSON reply conforming to a schema
+- `cache=True` for prompt caching with a one-hour cache
+- `effort=` for `output_config.effort` (5-family models only)
+
+**Retry on a bad reply.** `rollout_with_retry(system_file, user_text,
+accept)` calls `accept(text)` on the reply and retries once when it
+returns False. It returns the result and the number of extra attempts.
+
+**Multi-turn tool loops.** `build_body()` builds one request body and
+returns it with a session id. `stream_round(body, sid, halt=)` sends
+it. `halt` is called with each content block as the block starts
+streaming; returning True closes the connection at that point, after a
+few tokens. This is how think.py and dryrun.py stop a round as soon as
+the model's first choice of channel is visible.
+
+**Auth.** The token comes from `ANTHROPIC_STRIPPED_SDK_RUNNER` when
+set, otherwise from `~/.claude/.credentials.json`. There is no API-key
+path. An expired or rejected token exits with a message telling you to
+run a `claude` command to refresh it.
+
+**Quota.** HTTP 429, 503, and 529 responses cause a pause and a retry.
+The pause is `BARE_RUNNER_QUOTA_WAIT_S` seconds (default 300), at most
+`BARE_RUNNER_QUOTA_MAX_WAITS` times (default 12). The attempt count is
+returned in the result.
+
+**Billing check.** A 200 response billed to the subscription carries
+`anthropic-ratelimit-unified-*` headers. If a 200 arrives without
+them, the runner prints a warning to stderr, once per process, listing
+the headers it expected and the ones it got.
 
 ## think.py
-- Reasoning as a tool call — the forced two-round scheme from the
-  2026-08-13 experiments: round 1 forces a `think`
-  call (the reasoning arrives as the calls' `thoughts` input —
-  parallel calls all count and join), round 2 returns
-  "Acknowledged." and forces `write_answer`. Confirmed runs billed
-  0 thinking tokens with reasoning volume on par with native
-  thinking. Forcing is required — unforced, the models drift back
-  to built-in thinking.
-- `run(system_text, user_text, model=, effort=, answer_fields=, ...)`
-  returns `{verdict, thoughts, answer, native_thinking_tokens,
-  output_tokens, session_id, rounds}`; "ok" iff both forced calls
-  arrived with 0 thinking tokens billed. `answer_fields=(...)` types
-  the answer into write_answer's input schema — the refusal-free
-  replacement for structured output (fable refuses
-  output_config.format after a reasoning-tool call; tool input schemas
-  were never refused). `probe(body)` reads one content block and
-  hangs up: the 2–5-token channel check.
-- Guard rails wired in: a native thinking block aborts at its first
-  streamed block, stop_reason "refusal" becomes the verdict rather
-  than silence, and billed thinking_tokens must be 0.
-- The scheme's vocabulary is public — THINK, halt_native,
-  bad_round, native_tokens, thoughts_text, acknowledged — so
-  sibling schemes (dryrun.py) compose instead of copying.
+
+Returns the model's reasoning as ordinary text instead of private
+thinking tokens.
+
+The model is forced through two tool calls. In round one, `tool_choice`
+forces a tool named `think`, so the reasoning arrives as that tool's
+`thoughts` argument. In round two, the runner answers each `think` call
+with the tool result "Acknowledged." and forces a tool named `output`,
+so the answer arrives as that tool's argument. Confirmed runs billed
+zero thinking tokens with reasoning volume comparable to native
+thinking. The reasoning is still paid for: it bills as ordinary output
+tokens, and the scheme costs two requests.
+
+```python
+import think
+
+r = think.run(system_text, "your question")
+r["thoughts"]  # the reasoning text
+r["answer"]    # the answer
+r["verdict"]   # "ok", or a description of what went wrong
+```
+
+Both tools have no description and one string field named after the
+tool (`think` takes `thoughts`, `output` takes `output`). A description
+would be extra steering text sent with every request, and the forced
+`tool_choice` is what makes the model use the tool.
+
+Pass `answer_fields=("premise", "conclusion")` to get the answer as a
+dict with those keys. The fields become the `output` tool's input
+schema. The API's structured-output option is not used because some
+models refuse it after a reasoning tool call; a tool schema has never
+been refused.
+
+Failure handling:
+
+- If the model starts a native thinking block instead of calling the
+  tool, the round is closed within a few tokens and the verdict is
+  `native-thinking`. The same verdict is given when the response
+  reports any billed thinking tokens.
+- A refusal is reported as the verdict rather than returned as an
+  empty answer.
+- A transport error or a missing forced call is reported as the
+  verdict, with the round it happened in.
+
+Thinking stays enabled in every request, so a billed count of zero
+means the model chose the tool over an available private pass. The 4.5
+model family rejects forced `tool_choice` while thinking is enabled, so
+pass `thinking=False` for those models. That defeats the zero-thinking
+claim and is useful only for plumbing tests.
 
 ## dryrun.py
-- Stopped-at-reasoning dry runs — the pre-ship behavioral X-ray.
-  WHY (2026-08-14 dry-run experiments): reasoning chains contain
-  defect enactment — the model performing a misreading in its plan
-  rather than stating it anywhere — that no readback or self-report
-  surfaces. The dry run captures that chain from a prompt before
-  any side effect exists.
-- `dry_run(system_text, user_text, tools=, model=, effort=, probe=,
-  ...)` runs think.py's forced round 1 with the target
-  environment's FULL tool roster declared alongside — the model
-  reasons inside a tooled environment and the chain arrives as the
-  think calls' input — and never sends a working round (probe off:
-  exactly one request reaches the wire). Calls smuggled into the
-  forced round are recorded (`cochannel_calls`), never executed.
-- The default environment is the real thing:
-  `envs/claude-code-2.1.233-20260815/` (directory name = CLI
-  version + capture date) holds the system prompt and the 23-tool
-  roster an INTERACTIVE `claude --model claude-opus-5` session put
-  on the wire, captured verbatim (pristine container,
-  wire_capture.py in front of a 401 stub — the request was
-  recorded, nothing reached the API, all retry bodies
-  byte-identical). Interactive is the deliberate mode: it carries
-  the tools headless modes drop (AskUserQuestion, plan mode).
-  `system.txt` is the capture's system blocks after the CLI's
-  leading billing block, joined with a blank line — the container's
-  environment block (cwd /work) rides along; edit a copy if your
-  dry run needs a different world. Not in a pristine capture, by
-  construction: MCP servers, per-repo skills, and
-  remote-gate-served tools (TaskCreate-family, Monitor, ...) —
-  wire_capture a live session and pass `--tools-file` /
-  `--system-prompt-file` to dry-run such a target. Tool
-  descriptions are model-, version-, mode-, and
-  session-config-dependent (an SDK and a -p capture of the same
-  CLI differed only in CLI-generated text: Agent's delegation
-  guidance; the model display name in Bash's commit-trailer line)
-  — capture for the model you dry-run. `tools=None` declares the
-  shipped roster; `tools=[]` dry-runs bare. Re-freeze into a new
-  dated `envs/claude-code-*/` directory and point dryrun.ENV_DIR
-  at it.
-- `envs/replicated-env-20260814/tools.json` is the alternative
-  roster the 2026-08-14 experiments actually ran with: the 9-tool
-  replicated executor environment (bash, read_file, write_file,
-  edit_file, glob, grep, spawn_agent, publish_artifact,
-  message_principal), byte-identical to the bench's frozen env v1.0
-  `tools.json`. Genre-faithful, not byte-faithful to Claude Code
-  (its FIDELITY notes, deviation 2) — use it to reproduce or extend
-  those experiments; use the capture for real-executor dry runs.
-  Its paired system prompt describes the principal's workstation
-  and deliberately stays in the bench, outside this public repo.
-  Returns `{verdict, thoughts, cochannel_calls, first_action,
-  probe_thoughts, native_thinking_tokens, output_tokens,
-  session_id, rounds}`; verdict "ok" iff round 1 delivered the
-  forced call with 0 thinking tokens billed — think.py's rails.
-- The probe (on by default): one more round on the SAME session —
-  the transcript the model actually produced, every call answered
-  "Acknowledged.", tool_choice `{"type": "any"}` — hung up right
-  after the FIRST tool_use block completes. The first intended
-  action arrives with full args and nothing can execute. Cost: the
-  transcript re-billed as input plus about one call's output; a
-  halted round's usage counts only what streamed before the
-  hang-up, so the probe's output_tokens are a floor. A probe that
-  keeps reasoning or refuses degrades `first_action` to
-  `{"none": reason}` (extra reasoning kept in `probe_thoughts`),
-  never the verdict.
-- CLI: `python3 dryrun.py "user text"` (`--system-prompt-file` and
-  `--tools-file` override the shipped environment; `--no-probe`
-  for round-1-only). Prints the result dict as JSON; exits 0 iff
-  verdict "ok".
+
+Shows what the model would do with a task before anything can execute.
+
+It runs think.py's first round with a target environment's full tool
+list declared alongside the `think` tool, so the model plans as it
+would inside that environment. Nothing is executed; no tool has an
+implementation here. The result holds the reasoning chain and, when
+the probe is on, the first action the model intended to take with its
+arguments filled in. Any other tool call the model makes in the forced
+round is recorded in `cochannel_calls` and never executed.
+
+```
+python3 dryrun.py "the task you want to check"
+```
+
+The probe is on by default. It sends one more round on the same
+session with `tool_choice` set to `any` and closes the connection as
+soon as the first tool call has streamed completely. `first_action` is
+then `{"name": ..., "input": ...}`, or `{"none": reason}` when the
+model chose to reason further or the round failed. Pass `--no-probe`
+to skip it.
+
+This catches a failure that asking the model does not: the model
+misreading the task and acting on the misreading in its plan, while
+still describing the task correctly when asked to restate it.
+
+The default environment under `envs/` is a captured Claude Code
+session: the system prompt and the 23 tool definitions an interactive
+`claude` session sends on its first request (CLI 2.1.233, captured
+2026-08-15), recorded verbatim. A synthetic or trimmed environment
+defeats the purpose, because the model plans with the prompt and tools
+it sees. Override with `--tools-file` and `--system-prompt-file`. MCP
+servers and repository skills are not in the capture; pass your own
+tools file for a customized target.
 
 ## wire_capture.py
-- Debug/verification proxy, kept lean for when the wire needs to be
-  seen: relays traffic byte-for-byte untouched and writes each JSON
-  POST body to the capture dir as `req-NNNN.json` (+ `.headers.json`
-  sibling). Distilled from the full cc-sniff proxy; its Langfuse
-  export, timing marks, and thinking.display rewrite are deliberately
-  absent (a capture tool must not mutate the wire).
-- `python3 wire_capture.py 8899`, then point ANTHROPIC_BASE_URL at
-  it. Env: WIRE_CAPTURE_DIR / _UPSTREAM / _SCHEME. The counter seeds
-  past existing captures so restarts never overwrite evidence; read
-  capture windows by mtime, never filename order. Captures include
-  auth headers — treat the dir as secret material.
 
-## integration_test.py
-- `python3 integration_test.py` — live, fully automated, no stored
-  fixtures. Each run mints a FRESH `claude -p` capture as the shape
-  reference through two CHAINED wire_capture instances, then runs
-  four authored rollouts (cache-on CC shape, default, structured,
-  tools + forced tool_choice) through the same chain and asserts:
-  relay byte-fidelity, shape
-  parity of the cache-on wire vs the reference (only caller texts,
-  the deliberately absent reminder, session ids, lengths, and the
-  billing hash suffix may differ), the option contracts, clean
-  authored wires, and the tripwire — the `-p` reference smuggles a
-  reminder, no authored wire ever does. On drift it prints the fresh
-  wire values to re-freeze bare_runner's profiles from.
-- Run once per model family (`INTEGRATION_MODEL=claude-opus-5`) —
-  the wire differs between the 4.5 and 5 families.
+A capture proxy for debugging. It relays requests to the API unchanged
+and writes each request body and its headers to disk first.
+
+```
+python3 wire_capture.py 8899
+ANTHROPIC_BASE_URL=http://127.0.0.1:8899 python3 bare_runner.py ...
+```
+
+Captures go to `WIRE_CAPTURE_DIR` (default `/tmp/cc-sniff/capture`) as
+`req-NNNN.json` with a `req-NNNN.headers.json` beside it.
+
+Warning: the header files include the `Authorization` header with the
+OAuth token. Treat the capture directory as secret and delete it when
+you are done.
 
 ## offline_test.py
-- `python3 offline_test.py` — no network, no login: a local canned
-  /v1/messages server plays the API. Covers what the live test
-  cannot cheaply: response parsing, tool_calls, stream_round's halt
-  lever, refusal surfacing, quota retry, the think-tool two-round
-  transcript mechanics, and the dry run's stopped-at-reasoning
-  mechanics.
+
+```
+python3 offline_test.py
+```
+
+Needs no network and no login. A local server answers from canned
+responses. It covers response parsing, tool calls, the `halt`
+callback, refusals, quota retries, the billing warning, the think.py
+two-round transcript, the dryrun.py round and probe, and both CLIs. It
+also asserts the exact set of headers and body keys the runner sends,
+so any addition to the request fails here.
+
+## integration_test.py
+
+```
+python3 integration_test.py
+INTEGRATION_MODEL=claude-opus-5 python3 integration_test.py
+```
+
+Needs a real login. It makes about twenty calls at `max_tokens` 16 plus
+one normal rollout. It checks the request contract against the live
+API rather than trusting the comments in the code:
+
+- the minimal request is accepted
+- removing `Authorization`, `anthropic-version`, or the billing line
+  fails in the documented way, and a billing line that is not the first
+  system block fails too
+- `claude-haiku-4-5` accepts a request with no billing line, which is
+  why it must not be used for these checks
+- tools, forced `tool_choice`, structured output, adaptive thinking,
+  effort, and streaming all work without beta headers
+- forced `tool_choice` works with adaptive thinking and is rejected
+  with thinking type `enabled`
+- a subscription 200 carries the unified rate-limit headers
+
+Run it after changing the runner, and occasionally otherwise. The API
+it tests can change without notice.

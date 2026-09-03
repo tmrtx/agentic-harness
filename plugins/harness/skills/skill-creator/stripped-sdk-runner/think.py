@@ -16,14 +16,19 @@ opus never chose the tool on the production request (5/5 draws) and
 fable abandoned it on the hard problem (3/3); forced rounds opened
 with the tool call 23/23:
 
- round 1  tools=[think, write_answer], tool_choice→think:
+ round 1  tools=[think, output], tool_choice→think:
           the reasoning arrives as the calls' `thoughts` input
           (parallel calls all count and join).
- round 2  tool result "Acknowledged.", tool_choice→write_answer:
+ round 2  tool result "Acknowledged.", tool_choice→output:
           the answer arrives as the call's input.
 
+Both tools carry NO description and one bare field named for the tool
+(think→thoughts, output→output): descriptions are steering text on
+every request, and forcing rather than wording is what makes a tool
+get used.
+
 Typed answers: pass answer_fields=("premise", ...) and the fields
-become write_answer's input schema — NOT output_config.format, which
+become output's input schema — NOT output_config.format, which
 fable refuses after a reasoning-tool call (4/4 draws: HTTP 200,
 stop_reason "refusal", zero content). Tool input schemas were never
 refused (~30/30 tool-call responses).
@@ -33,11 +38,17 @@ Guard rails, all wired in:
    block — 2-5 tokens spent, verdict "native-thinking";
  - stop_reason "refusal" becomes the verdict, never silence;
  - closing check: billed thinking_tokens must be 0 on every round.
-Thinking stays ENABLED (the family default) in every request: a
-billed 0 means the model chose the tool, not that the private pass
-was disabled. Caveat: the API rejects forced tool_choice under the
-4.5 family's enabled-thinking shape — pass thinking=False there for
-plumbing tests; the scheme's claims are 5-family.
+Thinking stays ENABLED in every request: a billed 0 means the model
+chose the tool, not that the private pass was disabled. `run()`
+leaves thinking= unset and relies on bare_runner.build_body's
+default, family_thinking(): the enabled shape with the summary
+streamed, without which halt_native could never see a native block.
+Caveat: the API rejects forced tool_choice under the 4.5 family's
+enabled-thinking shape (400 "Thinking may not be enabled when
+tool_choice forces tool use" — it is the type "enabled" that is
+refused; "adaptive", which the 5 family uses, is accepted) — pass
+thinking=False there for plumbing tests; the scheme's claims are
+5-family.
 
 CLI:
     python3 think.py --system-prompt-file sys.txt "user text"
@@ -79,14 +90,20 @@ THINK = {
 }
 
 
-def write_answer_tool(answer_fields=None):
-    """The delivery tool; answer_fields turns its input schema into the
-    answer template (the refusal-free replacement for structured
-    output)."""
-    fields = list(answer_fields or ["answer"])
+OUTPUT_NAME = "output"
+
+
+def output_tool(answer_fields=None):
+    """The delivery tool, shaped exactly like THINK: no description,
+    one bare field named for the tool. Every description is steering
+    text riding along with every request, and forcing — not wording —
+    is what makes the model use a tool, so the delivery side carries
+    none either. Default schema is {"output": string}; answer_fields
+    replaces it with named sections (the refusal-free replacement for
+    structured output)."""
+    fields = list(answer_fields or [OUTPUT_NAME])
     return {
-        "name": "write_answer",
-        "description": "Deliver your complete final answer to the user.",
+        "name": OUTPUT_NAME,
         "input_schema": {
             "type": "object",
             "properties": {f: {"type": "string"} for f in fields},
@@ -150,7 +167,7 @@ def acknowledged(calls):
     ]
 
 
-def probe(body, timeout=600):
+def probe(body, sid=None, timeout=600):
     """The 2-5-token channel check: stream until the FIRST content
     block, hang up, report (channel, name) — ("thinking", None) means
     the model went to the private pass, ("tool_use", "think")
@@ -159,7 +176,7 @@ def probe(body, timeout=600):
     single round can be probed alone against a reconstructed history."""
     first = []
     r = bare_runner.stream_round(
-        body, halt=lambda cb: first.append(cb) or True, timeout=timeout
+        body, sid, halt=lambda cb: first.append(cb) or True, timeout=timeout
     )
     if first:
         return first[0].get("type"), first[0].get("name")
@@ -179,10 +196,10 @@ def run(
     """The two-round forced scheme. Returns {verdict, thoughts, answer,
     native_thinking_tokens, output_tokens, session_id, rounds};
     verdict "ok" iff both rounds delivered their forced call with 0
-    thinking tokens billed. answer is the `answer` string, or the full
+    thinking tokens billed. answer is the `output` string, or the full
     input dict when answer_fields names the sections. rounds are the
     raw stream_round results, usage included, for audit."""
-    tools = [THINK, write_answer_tool(answer_fields)]
+    tools = [THINK, output_tool(answer_fields)]
 
     def build(tool, messages=None, sid=None):
         return bare_runner.build_body(
@@ -212,7 +229,7 @@ def run(
         }
 
     body, sid = build(THINK["name"])
-    r1 = bare_runner.stream_round(body, halt=halt_native, timeout=timeout)
+    r1 = bare_runner.stream_round(body, sid, halt=halt_native, timeout=timeout)
     bad = bad_round(r1, THINK["name"])
     if bad:
         return summary("%s (round 1)" % bad, [r1])
@@ -222,13 +239,14 @@ def run(
     thoughts = thoughts_text(r1["tool_calls"])
 
     messages = body["messages"] + acknowledged(calls)
-    body2, _ = build("write_answer", messages=messages, sid=sid)
-    r2 = bare_runner.stream_round(body2, halt=halt_native, timeout=timeout)
-    bad = bad_round(r2, "write_answer")
+    body2, _ = build(OUTPUT_NAME, messages=messages, sid=sid)
+    r2 = bare_runner.stream_round(body2, sid, halt=halt_native, timeout=timeout)
+    bad = bad_round(r2, OUTPUT_NAME)
     if bad:
         return summary("%s (round 2)" % bad, [r1, r2], thoughts=thoughts)
-    inp = next(c for c in r2["tool_calls"] if c["name"] == "write_answer")["input"]
-    answer = inp if answer_fields else inp.get("answer")
+    inp = next(c for c in r2["tool_calls"]
+               if c["name"] == OUTPUT_NAME)["input"]
+    answer = inp if answer_fields else inp.get(OUTPUT_NAME)
     return summary("ok", [r1, r2], thoughts=thoughts, answer=answer)
 
 
@@ -245,7 +263,7 @@ def _cli():
         "--answer-fields",
         default=None,
         help="comma-separated section names; they become "
-        "write_answer's input schema and the answer arrives typed",
+        "output's input schema and the answer arrives typed",
     )
     ap.add_argument("--max-tokens", type=int, default=None)
     ap.add_argument(

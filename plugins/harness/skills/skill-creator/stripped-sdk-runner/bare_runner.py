@@ -1,39 +1,41 @@
-"""Bare rollouts — normal Claude Code-shaped submissions with a clean
-scored turn. Import `rollout()`, or run as a CLI (prints JSON).
+"""Bare rollouts — direct /v1/messages submissions with a clean scored
+turn. Import `rollout()`, or run as a CLI (prints JSON).
 
 WHY THIS EXISTS: `claude -p` is a perfectly good transport with one
 disqualifying flaw for scored rollouts — it injects a
 <system-reminder> block (userEmail, currentDate, "may or may not be
 relevant" context) into the USER TURN, and the model treats it as
 task-relevant signal. That contamination, not the transport, is the
-reason this runner submits directly. Everything else about the CLI's
-wire is kept — billing-header block, headers in CLI order and casing
-— because those identify how subscription traffic is billed,
-categorized, and served. Two deliberate exceptions: the CLI's SDK
-identity line ("You are a Claude agent…") is absent, because it is
-steering text and nothing but the caller's words may steer a scored
-rollout; and live streaming (stream_round) sends Accept-Encoding
-identity, because line-at-a-time reads cannot pass through stdlib
-gzip. The system carries billing + the caller's text, the user turn
-the caller's text, and NOTHING else.
+reason this runner submits directly.
 
-The WIRE profiles below are frozen from captured `claude -p` requests
-(CLI 2.1.220), one per model family — the families genuinely differ
-on the wire: the 4.5 family ("-4-5" in the id) sends max_tokens 32000
-and thinking {budget_tokens: 31999, enabled} at every effort; the 5
-family (opus-5, fable-5, sonnet-5) sends max_tokens 64000, thinking
-{adaptive}, effort inside output_config, and a longer beta list. The
-beta list also tracks the features a request uses, exactly like the
-CLI's. integration_test.py guards all of it against a freshly minted
--p capture; when the CLI updates and the test reports drift,
-re-freeze from the values it prints.
+WHAT IT SENDS: the bare minimum a live probe proves necessary, and
+nothing else. Everything else the CLI puts on the wire — betas,
+X-Stainless-* headers, metadata identity, context_management, x-app,
+per-family effort defaults — was probed unnecessary and is not sent
+(the list is recorded above BILLING). A subscription rollout differs
+from an API-key rollout in auth and billing, and in one behavioural
+default: reasoning is ON unless the caller passes thinking=False (see
+family_thinking). Nothing else is injected — with no effort= the
+model gets no effort, exactly as on a plain API call.
+
+The survivors, each carrying its probe evidence at its definition:
+the billing line leading the system prompt (the one thing that is
+genuinely gated — see BILLING), Authorization, anthropic-version, and
+three kept by preference rather than necessity (Content-Type,
+User-Agent, X-Claude-Code-Session-Id). max_tokens is supplied when
+omitted because the API requires the field.
+
+Probes date to 2026-08-28 and MUST be re-run against sonnet-5 or
+opus-5. haiku-4-5 does not enforce the billing gate, so a matrix run
+against haiku alone concludes the line is optional and ships a runner
+that 429s on every real model. integration_test.py is that matrix.
 
 Options, all OFF by default:
-- cache=True: the CLI's prompt-caching shape (ephemeral 1h
-  cache_control on the caller block, extended-cache-ttl beta).
-- output_format={json schema}: structured outputs (output_config
-  {"format": ...} plus the structured-outputs beta); the reply text
-  is the conforming JSON.
+- cache=True: ephemeral 1h cache_control on the caller's system
+  block (no beta header needed).
+- output_format={json schema}: structured outputs via output_config
+  {"format": ...} (no beta header needed); the reply text is the
+  conforming JSON.
 - tools=[...] / tool_choice={...}: on the wire verbatim, adjacent;
   tool calls come back parsed in the result's tool_calls.
 - messages=[...] / session_id=...: a full transcript in place of the
@@ -46,9 +48,8 @@ Options, all OFF by default:
 Auth: ANTHROPIC_STRIPPED_SDK_RUNNER when set (a token of the runner's
 own), otherwise the subscription OAuth token from
 ~/.claude/.credentials.json, re-read per call so a concurrent claude
-session's refresh is picked up. Identity (device_id, account_uuid)
-comes from ~/.claude.json — the same sources the CLI reads. There is
-no ANTHROPIC_API_KEY path.
+session's refresh is picked up. The token is the only credential the
+runner needs. There is no ANTHROPIC_API_KEY path.
 
 Calls go to ANTHROPIC_BASE_URL when set, api.anthropic.com otherwise
 — point it at wire_capture.py to record the wire when debugging.
@@ -61,7 +62,6 @@ CLI:
 Prints the rollout result dict as JSON; exits 0 iff a reply arrived.
 """
 
-import gzip
 import http.client
 import json
 import os
@@ -71,11 +71,13 @@ import urllib.parse
 import uuid
 
 DEFAULT_MODEL = os.environ.get("BARE_RUNNER_MODEL", "claude-opus-5")
+# rollout() sends no effort unless the caller passes one. think.py and
+# dryrun.py pass this constant explicitly; it is their default, not
+# the runner's.
 DEFAULT_EFFORT = os.environ.get("BARE_RUNNER_EFFORT", "xhigh")
 MAX_TOKENS_ENV = os.environ.get("BARE_RUNNER_MAX_TOKENS")
 TOKEN_ENV = "ANTHROPIC_STRIPPED_SDK_RUNNER"
 CREDENTIALS = os.path.expanduser("~/.claude/.credentials.json")
-CLAUDE_JSON = os.path.expanduser("~/.claude.json")
 
 def _quota_pause(status, attempts):
     """The one home for transport-status policy: quota statuses pause
@@ -94,60 +96,83 @@ def _quota_pause(status, attempts):
         )
     return False
 
-# ---- WIRE profiles: frozen from captured claude -p requests (2.1.220).
+# ---- The wire, and why each survivor is on it.
+#
+# Probed live against /v1/messages on 2026-08-28. The rule: an element
+# is here only if removing it breaks a live call, or is recorded below
+# as a deliberate exception. Everything the CLI sends that is NOT here
+# was probed unnecessary and deleted — all ten betas (oauth-2025-04-20
+# included), the seven X-Stainless-* headers, metadata.user_id
+# identity, context_management, x-app, Connection, Accept, and
+# anthropic-dangerous-direct-browser-access. Structured outputs,
+# cache_control, tools and forced tool_choice all work with no beta.
+#
+# ABLATE ONLY AGAINST sonnet-5 / opus-5. haiku-4-5 does NOT enforce
+# the billing gate below (200 without it, 3/3), so a matrix run against
+# haiku alone "proves" the line is optional and ships a runner that
+# 429s on every real model. That mistake has been made twice.
+
+# REQUIRED, and the subtlest thing here. The API reads the LEADING
+# system text as the subscription billing claim:
+#   present and first          -> 200        (sonnet-5, opus-5)
+#   absent                     -> 429 rate_limit_error, 3/3
+#   present but NOT first      -> 429        (sonnet-5 and opus-5)
+#   first block "hello"        -> 429        (the text itself is read)
+#   sent as an HTTP header     -> 429        (must be in the body)
+# It is a prefix check on the rendered system prompt, not a check on
+# block structure: a plain string "<billing>\n\nyour prompt" is also
+# 200, and "your prompt\n\n<billing>" is 429. Hence: first, always.
+#
+# The VALUES rot-proof themselves. Both keys must be present, but
+# neither value is validated — cc_version=0.0.0 returns 200 on sonnet
+# and opus, cc_entrypoint=api returns 200. Dropping either key gives
+# 400 invalid_request_error (a parse failure, distinct from the 429),
+# as does a bare "x-anthropic-billing-header:". So the 2.1.220.cf8
+# below never needs re-freezing when the CLI moves; it only has to
+# stay well-formed.
 BILLING = (
     "x-anthropic-billing-header: cc_version=2.1.220.cf8; " "cc_entrypoint=sdk-cli;"
 )
 CACHE_1H = {"type": "ephemeral", "ttl": "1h"}
-CONTEXT_MANAGEMENT = {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]}
+# NOT required (a bare curl UA is accepted, as is none at all). Kept by
+# owner preference, and left at the CLI string deliberately rather than
+# renamed — changing it would be a decision, not a removal.
 USER_AGENT = "claude-cli/2.1.220 (external, sdk-cli)"
-BETAS_45 = [
-    "oauth-2025-04-20",
-    "interleaved-thinking-2025-05-14",
-    "thinking-token-count-2026-05-13",
-    "context-management-2025-06-27",
-    "prompt-caching-scope-2026-01-05",
-    "claude-code-20250219",
-    "advisor-tool-2026-03-01",
-]
-BETAS_5 = [
-    "claude-code-20250219",
-    "oauth-2025-04-20",
-    "interleaved-thinking-2025-05-14",
-    "thinking-token-count-2026-05-13",
-    "context-management-2025-06-27",
-    "prompt-caching-scope-2026-01-05",
-    "mid-conversation-system-2026-04-07",
-    "advisor-tool-2026-03-01",
-    "effort-2025-11-24",
-    "afk-mode-2026-01-31",
-]
-CACHE_BETA = "extended-cache-ttl-2025-04-11"
-STRUCTURED_BETA = "structured-outputs-2025-12-15"
-STAINLESS = [
-    ("X-Stainless-Arch", "x64"),
-    ("X-Stainless-Lang", "js"),
-    ("X-Stainless-OS", "Linux"),
-    ("X-Stainless-Package-Version", "0.94.0"),
-]
-STAINLESS_RT = [
-    ("X-Stainless-Runtime", "node"),
-    ("X-Stainless-Runtime-Version", "v26.3.0"),
-    ("X-Stainless-Timeout", "600"),
-]
 
 
 def _family(model):
+    """The families differ for real, probed 2026-08-28: adaptive
+    thinking and output_config.effort are 5-family only — haiku-4-5
+    answers 400 "adaptive thinking is not supported on this model" and
+    400 "This model does not support the effort parameter". Consulted
+    by family_thinking() and the max_tokens default."""
     return "4.5" if "-4-5" in model else "5"
 
 
-def _betas(model, cache, structured):
-    base = list(BETAS_45 if _family(model) == "4.5" else BETAS_5)
-    if cache:
-        base.append(CACHE_BETA)
-    if structured:
-        base.append(STRUCTURED_BETA)
-    return ",".join(base)
+def family_thinking(model, max_tokens=None):
+    """The per-family ENABLED-thinking shape, and build_body's default.
+
+    Reasoning is ON by default — an owner decision, and the one
+    behavioural default the runner keeps. Scored rollouts want it, and
+    think.py's forced-tool scheme outright depends on it: a billed 0
+    means the model chose the tool over an AVAILABLE private pass,
+    which is the entire claim. dryrun.py inherits that.
+
+    display must be set EXPLICITLY: the CLI omits it and the server
+    then suppresses the reasoning summary (billed, never streamed);
+    "summarized" is the one value that streams it. It is also what
+    makes think.py's 2-5-token abort rail work at all — an unstreamed
+    thinking block never reaches halt_native.
+
+    Forced tool_choice rejects type "enabled" (400 "Thinking may not be
+    enabled when tool_choice forces tool use", both families) but
+    accepts "adaptive". That is why the scheme is 5-family and why 4.5
+    needs thinking=False, exactly as think.py already documents."""
+    if _family(model) == "4.5":
+        mt = max_tokens or (int(MAX_TOKENS_ENV) if MAX_TOKENS_ENV else 32000)
+        return {"budget_tokens": mt - 1, "type": "enabled",
+                "display": "summarized"}
+    return {"type": "adaptive", "display": "summarized"}
 
 
 def base_url():
@@ -160,6 +185,16 @@ def oauth_token():
     # A dedicated token in the environment wins over the CLI's credentials,
     # so rollouts can run on their own auth instead of riding on (and racing
     # the refresh of) the interactive session's. Unset -> the CLI's files.
+    #
+    # Quota follows the TOKEN'S ACCOUNT. Whether that isolates a rollout
+    # from the interactive session depends entirely on the two tokens
+    # belonging to different subscriptions; the override does not create a
+    # separate bucket by itself. Utilization figures from two tokens are
+    # therefore not comparable until you know whose they are —
+    # anthropic-organization-id on any response says which account a token
+    # actually spends against. An override token may also carry a narrower
+    # scope set (one seen here lacks user:profile), which affects account
+    # endpoints but not inference.
     override = os.environ.get(TOKEN_ENV, "").strip()
     if override:
         return override
@@ -179,19 +214,6 @@ def oauth_token():
     return token
 
 
-def account_identity():
-    """(device_id, account_uuid) from ~/.claude.json — the CLI's own
-    sources for metadata.user_id."""
-    try:
-        cj = json.load(open(CLAUDE_JSON))
-        return cj["userID"], cj["oauthAccount"]["accountUuid"]
-    except (OSError, ValueError, KeyError):
-        raise SystemExit(
-            "no account identity in %s — run `claude` once on "
-            "this machine first" % CLAUDE_JSON
-        )
-
-
 def assert_env():
     # A key in the environment means someone is expecting API billing, but this
     # runner only ever sends the OAuth bearer — fail loud rather than bill elsewhere.
@@ -199,15 +221,15 @@ def assert_env():
         "ANTHROPIC_API_KEY is set — bare_runner has no API-key path and would "
         "charge the subscription instead; unset it before running rollouts"
     )
+    # The token is the only credential the runner needs.
     oauth_token()
-    account_identity()
 
 
 def build_body(
     system_text,
     user_text,
     model,
-    effort,
+    effort=None,
     max_tokens=None,
     thinking=None,
     cache=False,
@@ -217,12 +239,23 @@ def build_body(
     messages=None,
     session_id=None,
 ):
-    """(body, session_id): the CLI's request shape for the model's
-    family — same key order, same floor blocks, same metadata sources —
-    with the user turn carrying ONLY the caller's text. `messages`
-    replaces the single user turn with a full transcript (user_text is
-    then unused); pass the returned session_id back in so a
-    conversation's rounds share one session."""
+    """(body, session_id): the caller's request, plus the billing line
+    and nothing else. Every optional key is absent unless the caller
+    asked for it, so a rollout behaves like the same call made with an
+    API key — that parity is the invariant this runner keeps.
+
+    max_tokens is the one exception: the API requires the field, so it
+    is supplied when omitted, at the per-family value the CLI uses.
+
+    thinking: None gets family_thinking(model) — reasoning is ON by
+    default, an owner decision, because scored rollouts want it and
+    every caller here depends on it. False sends the explicit disabled
+    shape; a dict goes through verbatim. This is the one behavioural
+    default the runner keeps; effort and the rest inject nothing.
+
+    `messages` replaces the single user turn with a full transcript
+    (user_text is then unused); pass the returned session_id back in so
+    a conversation's rounds share one id."""
     fam = _family(model)
     if max_tokens is None:
         max_tokens = (
@@ -231,30 +264,16 @@ def build_body(
             else (32000 if fam == "4.5" else 64000)
         )
     if thinking is None:
-        # display must be set EXPLICITLY: the CLI omits it and the server
-        # then suppresses the reasoning summary (billed, never streamed).
-        # "summarized" is the one value that streams it; "omitted" streams
-        # nothing; every other value is HTTP 400. Verified live by the
-        # cc-sniff rewrite this knowledge is inherited from.
-        thinking = (
-            {
-                "budget_tokens": max_tokens - 1,
-                "type": "enabled",
-                "display": "summarized",
-            }
-            if fam == "4.5"
-            else {"type": "adaptive", "display": "summarized"}
-        )
+        thinking = family_thinking(model, max_tokens)
     elif thinking is False:
         thinking = {"type": "disabled"}
-    output_config = None
-    if fam == "5":
-        output_config = {"effort": effort}
+    output_config = {"effort": effort} if effort else None
     if output_format:
         output_config = dict(output_config or {})
         output_config["format"] = output_format
-    device_id, account_uuid = account_identity()
     sid = session_id or str(uuid.uuid4())
+    # The billing line leads, always — see BILLING. Position is the
+    # contract; a caller block ahead of it costs a 429.
     sys_blocks = [
         {"type": "text", "text": BILLING},
         {"type": "text", "text": system_text},
@@ -266,65 +285,99 @@ def build_body(
         "messages": messages
         or [{"role": "user", "content": [{"type": "text", "text": user_text}]}],
         "system": sys_blocks,
-        "tools": list(tools or []),
+        "max_tokens": max_tokens,
     }
+    # Absent, not empty: the CLI sends "tools": [] on every request and
+    # an empty array is still a non-default the caller never asked for.
+    if tools:
+        body["tools"] = list(tools)
     if tool_choice:
         body["tool_choice"] = tool_choice
-    body.update(
-        {
-            "metadata": {
-                "user_id": json.dumps(
-                    {
-                        "device_id": device_id,
-                        "account_uuid": account_uuid,
-                        "session_id": sid,
-                    },
-                    separators=(",", ":"),
-                )
-            },
-            "max_tokens": max_tokens,
-            "thinking": thinking,
-        }
-    )
-    if thinking.get("type") != "disabled":
-        # The CLI's disabled-thinking calls omit context_management (the
-        # clear_thinking strategy 400s without thinking) — observed on the
-        # -p title side call and confirmed live.
-        body["context_management"] = json.loads(json.dumps(CONTEXT_MANAGEMENT))
+    if thinking:
+        body["thinking"] = thinking
     if output_config:
         body["output_config"] = output_config
+    # Not dressing: the reply reader is an SSE folder, so the transport
+    # is streaming by construction. It does not change what the model
+    # produces.
     body["stream"] = True
     return body, sid
 
 
-def _headers(betas, sid, attempt, body_len, netloc, accept_encoding=None):
-    """The CLI's header sequence — names, order, casing — with only the
-    per-call values fresh."""
-    return (
-        [
-            ("Accept", "application/json"),
-            ("Authorization", "Bearer " + oauth_token()),
-            ("Content-Type", "application/json"),
-            ("User-Agent", USER_AGENT),
-            ("X-Claude-Code-Session-Id", sid),
-        ]
-        + STAINLESS
-        + [("X-Stainless-Retry-Count", str(attempt - 1))]
-        + STAINLESS_RT
-        + [
-            ("anthropic-beta", betas),
-            ("anthropic-dangerous-direct-browser-access", "true"),
-            ("anthropic-version", "2023-06-01"),
-            ("x-app", "cli"),
-            ("Connection", "keep-alive"),
-            ("Host", netloc),
-            ("Accept-Encoding", accept_encoding or "gzip, deflate, br, zstd"),
-            ("Content-Length", str(body_len)),
-        ]
+def _headers(sid, body_len):
+    """Everything the runner puts on the wire, and the whole of it.
+
+    REQUIRED (probed 2026-08-28 on sonnet-5, which enforces the gate):
+      Authorization      — 401 without it ("OAuth access token is
+                           invalid" on a bad one, so this is the
+                           subscription path, not an API-key path)
+      anthropic-version  — 400 "anthropic-version: header is required"
+    NOT required, kept deliberately:
+      Content-Type       — 200 without it; sent because an API-key SDK
+                           call sends it and parity is the invariant
+      User-Agent         — see USER_AGENT
+      X-Claude-Code-Session-Id — owner decision; harmless, and it gives
+                           the returned session id a real referent
+    Host and Accept-Encoding: identity are added by http.client. The
+    identity encoding is what lets stream_round read line-at-a-time;
+    stdlib cannot decode gzip off a live stream."""
+    return [
+        ("Authorization", "Bearer " + oauth_token()),
+        ("Content-Type", "application/json"),
+        ("User-Agent", USER_AGENT),
+        ("X-Claude-Code-Session-Id", sid),
+        ("anthropic-version", "2023-06-01"),
+        ("Content-Length", str(body_len)),
+    ]
+
+
+UNIFIED_PREFIX = "anthropic-ratelimit-unified-"
+_WARNED_UNBILLED = [False]   # once per process; tests reset it
+
+
+def _warn_unbilled(status, headers):
+    """Warn when a 200 came back WITHOUT the subscription's unified
+    rate-limit headers — i.e. when the call was not billed to the
+    subscription.
+
+    Why this can be trusted, probed 2026-08-28 with an API key as the
+    negative control: the two rate-limit families partition cleanly.
+    Subscription (OAuth) 200s carry twelve anthropic-ratelimit-unified-*
+    headers and zero per-tier ones; API-key 200s carry twelve per-tier
+    headers (requests / tokens / input-tokens / output-tokens limits)
+    and zero unified ones, 4/4. So absence on a 200 is diagnostic
+    rather than merely unusual — which a one-armed test could not have
+    shown, since every subscription probe trivially agrees with itself.
+
+    A WARNING, never an exception, and never on a non-200: these header
+    names belong to Anthropic, and a rename must degrade to noise
+    rather than break every rollout. Error responses legitimately carry
+    no rate-limit family at all (probed on 400/401/429).
+
+    The runner cannot actually reach this state today — it sends only
+    the OAuth bearer, and an API key presented that way is refused 401
+    — so this is a tripwire against a future auth path, not a live
+    hazard."""
+    if status != 200 or _WARNED_UNBILLED[0]:
+        return
+    got = sorted(k.lower() for k, _ in headers
+                 if k.lower().startswith("anthropic-ratelimit-"))
+    if any(k.startswith(UNIFIED_PREFIX) for k in got):
+        return
+    _WARNED_UNBILLED[0] = True
+    sys.stderr.write(
+        "bare_runner: WARNING — this 200 was not billed to the "
+        "subscription.\n"
+        "  expected: %s* headers\n"
+        "  got:      %s\n"
+        "  The reply is unaffected; the billing account is not the one "
+        "this runner is for.\n"
+        % (UNIFIED_PREFIX, ", ".join(got) or "no anthropic-ratelimit-* "
+           "headers at all")
     )
 
 
-def _post(url, betas, body_bytes, sid, attempt, timeout, accept_encoding=None):
+def _post(url, body_bytes, sid, timeout):
     """(connection, response) for one POSTed body — caller closes."""
     u = urllib.parse.urlsplit(url)
     cls = (
@@ -333,34 +386,18 @@ def _post(url, betas, body_bytes, sid, attempt, timeout, accept_encoding=None):
         else http.client.HTTPConnection
     )
     c = cls(u.netloc, timeout=timeout)
-    c.putrequest(
-        "POST",
-        (u.path.rstrip("/")) + "/v1/messages",
-        skip_host=True,
-        skip_accept_encoding=True,
-    )
-    for k, v in _headers(
-        betas, sid, attempt, len(body_bytes), u.netloc, accept_encoding
-    ):
+    c.putrequest("POST", (u.path.rstrip("/")) + "/v1/messages")
+    for k, v in _headers(sid, len(body_bytes)):
         c.putheader(k, v)
     c.endheaders(body_bytes)
     return c, c.getresponse()
 
 
-def _send(url, betas, body_bytes, sid, attempt, timeout):
-    c, r = _post(url, betas, body_bytes, sid, attempt, timeout)
+def _send(url, body_bytes, sid, timeout):
+    c, r = _post(url, body_bytes, sid, timeout)
     try:
-        data = r.read()
-        enc = (r.getheader("content-encoding") or "").lower()
-        if enc == "gzip":
-            data = gzip.decompress(data)
-        elif enc:
-            raise SystemExit(
-                "response compressed as %r — stdlib cannot "
-                "decode it; route through wire_capture.py "
-                "(it forces identity upstream)" % enc
-            )
-        return r.status, data
+        _warn_unbilled(r.status, r.getheaders())
+        return r.status, r.read()
     finally:
         c.close()
 
@@ -448,15 +485,6 @@ def _parse(status, data):
     return [], None, None, {}, obj
 
 
-def _betas_for(body):
-    """The beta list a built body needs, derived from the body itself —
-    the cache and structured-output betas track their features exactly,
-    the way the CLI's list tracks its own."""
-    cache = any("cache_control" in b for b in body.get("system") or [])
-    structured = "format" in (body.get("output_config") or {})
-    return _betas(body["model"], cache, structured)
-
-
 def _result(status, attempts, sid, folded):
     blocks, model, stop, usage, err = folded
     text, think, calls = _digest(blocks)
@@ -474,23 +502,27 @@ def _result(status, attempts, sid, folded):
     }
 
 
-def stream_round(body, halt=None, timeout=600):
+def stream_round(body, sid=None, halt=None, timeout=600):
     """One live exchange for an already-built body (from build_body):
-    betas and session id derive from the body, the reply streams
-    line-at-a-time, and halt(content_block) is consulted at each
-    content_block_start — truthy hangs up on the spot (stop "halted").
-    A first-block hang-up costs 2-5 tokens: the probe / abort lever.
-    Returns the same result dict as rollout(). Quota pauses and
-    retries the same way."""
-    betas = _betas_for(body)
-    sid = json.loads(body["metadata"]["user_id"])["session_id"]
+    the reply streams line-at-a-time, and halt(content_block) is
+    consulted at each content_block_start — truthy hangs up on the spot
+    (stop "halted"). A first-block hang-up costs 2-5 tokens: the probe
+    / abort lever. Returns the same result dict as rollout(). Quota
+    pauses and retries the same way.
+
+    `sid` is the session id sent in the X-Claude-Code-Session-Id
+    header. Pass build_body's second return value to keep a
+    conversation's rounds under one id; omitting it mints a fresh
+    one."""
+    sid = sid or str(uuid.uuid4())
     body_bytes = json.dumps(body, separators=(",", ":"), ensure_ascii=False).encode()
     url = base_url()
     attempts = 0
     while True:
         attempts += 1
-        c, r = _post(url, betas, body_bytes, sid, attempts, timeout, "identity")
+        c, r = _post(url, body_bytes, sid, timeout)
         try:
+            _warn_unbilled(r.status, r.getheaders())
             if _quota_pause(r.status, attempts):
                 continue
             if r.status != 200:
@@ -506,7 +538,7 @@ def rollout(
     system_file,
     user_text,
     model=DEFAULT_MODEL,
-    effort=DEFAULT_EFFORT,
+    effort=None,
     max_tokens=None,
     thinking=None,
     cache=False,
@@ -521,8 +553,9 @@ def rollout(
     not think or thinking is disabled). tool_calls are API-shaped
     tool_use blocks with parsed input, ready to echo in an assistant
     turn. With output_format, text is the schema-conforming JSON
-    string. Buffered, CLI-exact wire; for a live stream with an early
-    hang-up lever, build the body and use stream_round."""
+    string. Reasoning is on by default; pass thinking=False to disable
+    it. Buffered; for a live stream with an early hang-up lever, build
+    the body and use stream_round."""
     if not os.path.exists(system_file):
         raise SystemExit("system prompt file missing: %s" % system_file)
     system_text = open(system_file, encoding="utf-8").read()
@@ -538,13 +571,12 @@ def rollout(
         tools=tools,
         tool_choice=tool_choice,
     )
-    betas = _betas_for(body)
     body_bytes = json.dumps(body, separators=(",", ":"), ensure_ascii=False).encode()
     url = base_url()
     attempts = 0
     while True:
         attempts += 1
-        status, data = _send(url, betas, body_bytes, sid, attempts, timeout)
+        status, data = _send(url, body_bytes, sid, timeout)
         if not _quota_pause(status, attempts):
             break
     return _result(status, attempts, sid, _parse(status, data))
@@ -586,7 +618,12 @@ def _cli():
     )
     ap.add_argument("--system-prompt-file", required=True)
     ap.add_argument("--model", default=DEFAULT_MODEL)
-    ap.add_argument("--effort", default=DEFAULT_EFFORT)
+    ap.add_argument(
+        "--effort",
+        default=None,
+        help="output_config.effort; unset sends no effort at all, as a "
+        "plain API call does (5-family only — 4.5 answers 400)",
+    )
     ap.add_argument("--max-tokens", type=int, default=None)
     ap.add_argument(
         "--cache",
@@ -615,8 +652,8 @@ def _cli():
     ap.add_argument(
         "--no-thinking",
         action="store_true",
-        help="send the CLI's disabled-thinking shape (the 4.5 family "
-        "rejects forced tool_choice with thinking enabled)",
+        help="send the disabled-thinking shape (reasoning is on by "
+        "default; the 4.5 family needs this to force tool_choice)",
     )
     ap.add_argument("--timeout", type=int, default=600)
     ap.add_argument(
